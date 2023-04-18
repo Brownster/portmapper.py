@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Upload CSV</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f8f9fa;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        input[type="file"],
+        input[type="text"] {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <form method="post" enctype="multipart/form-data">
+        <h1>Upload CSV</h1>
+        <label for="maas_ng_ip">MaaS-NG IP Address:</label>
+        <input type="text" name="maas_ng_ip" id="maas_ng_ip">
+        <label for="file">CSV File:</label>
+        <input type="file" name="file" id="file">
+        <input type="submit" value="Upload">
+    </form>
+</body>
+</html>
