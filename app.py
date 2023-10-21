@@ -1,11 +1,8 @@
-from flask import Flask, request, redirect, url_for, flash, send_file
-from werkzeug.utils import secure_filename
-import os
-import csv
+from flask import Flask, request, redirect, url_for, flash, send_file, session, render_template
 import io
-from flask import session
-from flask import render_template
+import csv
 
+# Function to create port CSV
 def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None):
     port_mappings = {
         "exporter_aes": {
@@ -98,71 +95,40 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
 
     unique_entries = set()
 
-    with open(input_file, "r") as infile, open(output_file, "w") as outfile:
-        reader = csv.DictReader(infile)
-        writer = csv.writer(outfile)
-        writer.writerow(["Source_IP_Address", "Destination_IP_Address", "Port"])
+    reader = csv.DictReader(input_file)
+    writer = csv.writer(output_file)
+    writer.writerow(["Source_IP_Address", "Destination_IP_Address", "Port"])
 
-        for row in reader:
-            fqdn = row["FQDN"]
-            if selected_hostnames is not None and fqdn not in selected_hostnames:
-                continue
-            ip = row["IP Address"]
-            exporter_name_os = row["Exporter_name_os"]
-            exporter_name_app = row["Exporter_name_app"]
+    for row in reader:
+        fqdn = row["FQDN"]
+        if selected_hostnames is not None and fqdn not in selected_hostnames:
+            continue
+            
+        ip = row["IP Address"]
+        exporter_name_os = row["Exporter_name_os"]
+        exporter_name_app = row["Exporter_name_app"]
 
-            exporters = [exporter_name_os, exporter_name_app]
+        exporters = [exporter_name_os, exporter_name_app]
 
-            for exporter in exporters:
-                if exporter in port_mappings:
-                    for protocol, port in port_mappings[exporter]["src"]:
-                        entry = (maas_ng_ip, ip, f"{protocol}: {port}")
-                        if entry not in unique_entries:
-                            writer.writerow(entry)
-                            unique_entries.add(entry)
+        for exporter in exporters:
+            if exporter in port_mappings:
+                for protocol, port in port_mappings[exporter]["src"]:
+                    entry = (maas_ng_ip, ip, f"{protocol}: {port}")
+                    if entry not in unique_entries:
+                        writer.writerow(entry)
+                        unique_entries.add(entry)
 
-                    for protocol, port in port_mappings[exporter]["dst"]:
-                        entry = (ip, maas_ng_ip, f"{protocol}: {port}")
-                        if entry not in unique_entries:
-                            writer.writerow(entry)
-                            unique_entries.add(entry)
+                for protocol, port in port_mappings[exporter]["dst"]:
+                    entry = (ip, maas_ng_ip, f"{protocol}: {port}")
+                    if entry not in unique_entries:
+                        writer.writerow(entry)
+                        unique_entries.add(entry)
 
-
-    unique_entries = set()
-
-    with open(input_file, "r") as infile, open(output_file, "w") as outfile:
-        reader = csv.DictReader(infile)
-        writer = csv.writer(outfile)
-        writer.writerow(["Source_IP_Address", "Destination_IP_Address", "Port"])
-
-        for row in reader:
-            fqdn = row["FQDN"]
-            if selected_hostnames is not None and fqdn not in selected_hostnames:
-                continue
-            fqdn = row["FQDN"]
-            ip = row["IP Address"]
-            exporter_name_os = row["Exporter_name_os"]
-            exporter_name_app = row["Exporter_name_app"]
-
-            exporters = [exporter_name_os, exporter_name_app]
-
-            for exporter in exporters:
-                if exporter in port_mappings:
-                    for protocol, port in port_mappings[exporter]["src"]:
-                        entry = (maas_ng_ip, ip, f"{protocol}: {port}")
-                        if entry not in unique_entries:
-                            writer.writerow(entry)
-                            unique_entries.add(entry)
-
-                    for protocol, port in port_mappings[exporter]["dst"]:
-                        entry = (ip, maas_ng_ip, f"{protocol}: {port}")
-                        if entry not in unique_entries:
-                            writer.writerow(entry)
-                            unique_entries.add(entry)
-
+# Create Flask app and set the secret key
 app = Flask(__name__)
 app.secret_key = "your_secret_key"
 
+# Route to upload CSV
 @app.route("/", methods=["GET", "POST"])
 def upload_csv():
     if request.method == "POST":
@@ -184,8 +150,9 @@ def upload_csv():
             session['uploaded_csv'] = file.stream.read().decode("UTF8")
             return redirect(url_for("process", maas_ng_ip=maas_ng_ip))
 
-        return render_template("index.html")
+    return render_template("index.html")
 
+# Route to process the uploaded CSV
 @app.route("/process")
 def process():
     maas_ng_ip = request.args.get("maas_ng_ip")
@@ -198,7 +165,7 @@ def process():
 
     return render_template("process.html", hostnames=hostnames, maas_ng_ip=maas_ng_ip)
 
-
+# Route to generate the output CSV
 @app.route("/generate_output_csv", methods=["POST"])
 def generate_output_csv():
     selected_hostnames = request.form.getlist("selected_hostnames")
@@ -216,18 +183,7 @@ def generate_output_csv():
         attachment_filename="output.csv",
     )
 
-
-
-    return '''
-    <!doctype html>
-    <title>Upload CSV</title>
-    <h1>Upload CSV</h1>
-    <form method=post enctype=multipart/form-data>
-        MaaS-NG IP Address: <input type=text name=maas_ng_ip><br>
-        CSV File: <input type=file name=file><br>
-        <input type=submit value=Upload>
-    </form>
-    '''
-
+# Run the Flask app
 if __name__ == "__main__":
     app.run(debug=True)
+
