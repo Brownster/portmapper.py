@@ -1,8 +1,29 @@
 from flask import Flask, request, redirect, url_for, flash, send_file, session, render_template
 import io
 import csv
+import os
+import uuid
+import time
+from werkzeug.utils import secure_filename
 
-# Function to create port CSV
+app = Flask(__name__)
+app.secret_key = '123456789'
+
+# Directory to store uploaded files temporarily
+UPLOAD_FOLDER = '/tmp/'  # Set this to a suitable directory
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Function to delete old temporary files
+def cleanup_old_files(directory, max_age_in_seconds):
+    current_time = time.time()
+    for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
+        if os.path.isfile(file_path):
+            file_age = current_time - os.path.getmtime(file_path)
+            if file_age > max_age_in_seconds:
+                os.remove(file_path)
+
+# Your existing function create_port_csv
 def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None):
     port_mappings = {
         "exporter_aes": {
@@ -124,11 +145,6 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
                         writer.writerow(entry)
                         unique_entries.add(entry)
 
-# Create Flask app and set the secret key
-app = Flask(__name__)
-app.secret_key = "your_secret_key"
-
-# Route to upload CSV
 @app.route("/", methods=["GET", "POST"])
 def upload_csv():
     if request.method == "POST":
@@ -147,43 +163,55 @@ def upload_csv():
             return redirect(request.url)
 
         if file:
-            session['uploaded_csv'] = file.stream.read().decode("UTF8")
+            filename = secure_filename(str(uuid.uuid4()) + '.csv')
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+
+            session['file_path'] = file_path
             return redirect(url_for("process", maas_ng_ip=maas_ng_ip))
 
     return render_template("index.html")
 
-# Route to process the uploaded CSV
 @app.route("/process")
 def process():
     maas_ng_ip = request.args.get("maas_ng_ip")
-    input_file = io.StringIO(session["uploaded_csv"], newline=None)
+    file_path = session.get("file_path")
+
+    if not file_path or not os.path.exists(file_path):
+        flash("File not found. Please upload again.")
+        return redirect(url_for("upload_csv"))
 
     hostnames = []
-    reader = csv.DictReader(input_file)
-    for row in reader:
-        hostnames.append(row["FQDN"])
+    with open(file_path, mode='r', encoding='utf-8') as input_file:
+        reader = csv.DictReader(input_file)
+        for row in reader:
+            hostnames.append(row["FQDN"])
 
     return render_template("process.html", hostnames=hostnames, maas_ng_ip=maas_ng_ip)
 
-# Route to generate the output CSV
 @app.route("/generate_output_csv", methods=["POST"])
 def generate_output_csv():
     selected_hostnames = request.form.getlist("selected_hostnames")
     maas_ng_ip = request.form["maas_ng_ip"]
-    input_file = io.StringIO(session["uploaded_csv"], newline=None)
-    output_file = io.StringIO()
+    file_path = session.get("file_path")
 
-    create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames)
+    if not file_path or not os.path.exists(file_path):
+        flash("File not found. Please upload again.")
+        return redirect(url_for("upload_csv"))
 
-    output_file.seek(0)
-    return send_file(
-        output_file,
-        mimetype="text/csv",
-        as_attachment=True,
-        attachment_filename="output.csv",
-    )
+    with open(file_path, mode='r', encoding='utf-8') as input_file, io.StringIO() as output_file:
+        create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames)
+
+        output_file.seek(0)
+        return send_file(
+            output_file,
+            mimetype="text/csv",
+            as_attachment=True,
+            attachment_filename="output.csv",
+        )
 
 # Run the Flask app
 if __name__ == "__main__":
+    # Cleanup old files every time the server starts
+    cleanup_old_files(app.config['UPLOAD_FOLDER'], max_age_in_seconds=3600)  # 1 hour
     app.run(debug=True)
-
