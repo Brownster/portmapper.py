@@ -91,8 +91,8 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_tcti": {
-            "src": [("UDP", "514"), ("TCP", "514")],
-            "dst": [],
+            "src": [("TCP", "8080")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_callback": {
             "src": [("TCP", "1433")],
@@ -108,7 +108,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
         },
         "exporter_breeze": {
             "src": [("TCP", "22")],
-            "dst": [],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_acm": {
             "src": [("TCP", "22"), ("TCP", "5022"), ("TCP", "443"), ("TCP", "161")],
