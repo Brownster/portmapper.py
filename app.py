@@ -27,11 +27,11 @@ def cleanup_old_files(directory, max_age_in_seconds):
 def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None):
     port_mappings = {
         "exporter_aes": {
-            "src": [("TCP", "22"), ("UDP", "162")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
+            "src": [("TCP", "22")],
+            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
         },
         "exporter_gateway": {
-            "src": [("UDP", "161"), ("TCP", "22")],
+            "src": [("UDP", "161"), ("TCP", "22"), ("ICMP", "ping")],
             "dst": [("UDP", "162")],
         },
         "exporter_ams": {
@@ -55,11 +55,11 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
             "dst": [],
         },
         "exporter_windows": {
-            "src": [("TCP", "9182")],
+            "src": [("TCP", "9182"), ("ICMP", "ping")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_linux": {
-            "src": [("TCP", "22")],
+            "src": [("TCP", "22"), ("ICMP", "ping")],
             "dst": [],
         },
         "exporter_ipo": {
@@ -79,11 +79,11 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_wfodb": {
-            "src": [("TCP", "1433"), ("TCP", "9182")],
+            "src": [("TCP", "1433"), ("TCP", "9182"), ("ICMP", "ping")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_verint": {
-            "src": [("TCP", "9182")],
+            "src": [("TCP", "9182"), ("ICMP", "ping")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_network": {
@@ -98,19 +98,22 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
             "src": [("TCP", "1433")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
-        "exporter_nuance": {
+        "exporter_nuancelm": {
             "src": [("TCP", "9182"), ("TCP", "27000")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
-        "exporter_windows": {
-            "src": [("TCP", "9182")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
+        "exporter_mpp": {
+            "src": [("TCP", "22")],
+            "dst": [],
         },
         "exporter_breeze": {
             "src": [("TCP", "22")],
             "dst": [],
         },
-
+        "exporter_acm": {
+            "src": [("TCP", "22"), ("TCP", "5022")],
+            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
+        },
 
        }
 
