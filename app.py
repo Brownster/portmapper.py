@@ -201,14 +201,14 @@ def generate_output_csv():
 
     with open(file_path, mode='r', encoding='utf-8') as input_file, io.StringIO() as output_file:
         create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames)
-
+        
         output_file.seek(0)
-        return send_file(
-            output_file,
-            mimetype="text/csv",
-            as_attachment=True,
-            attachment_filename="output.csv",
-        )
+        output_filename = secure_filename(str(uuid.uuid4()) + '_output.csv')
+        output_file_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
+        with open(output_file_path, 'w', encoding='utf-8') as final_output_file:
+            final_output_file.write(output_file.getvalue())
+
+        return send_file(output_file_path, as_attachment=True, download_name='output.csv')
 
 # Run the Flask app
 if __name__ == "__main__":
