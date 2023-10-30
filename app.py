@@ -28,14 +28,14 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
     port_mappings = {
         "exporter_aes": {
             "src": [("TCP", "22")],
-            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
+            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162"), ("TCP", "443")],
         },
         "exporter_gateway": {
             "src": [("UDP", "161"), ("TCP", "22"), ("ICMP", "ping")],
             "dst": [("UDP", "162")],
         },
         "exporter_ams": {
-            "src": [("TCP", "22"), ("UDP", "161")],
+            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "8443")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_sm": {
@@ -43,11 +43,11 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
             "dst": [],
         },
         "exporter_avayasbc": {
-            "src": [("TCP", "222"), ("UDP", "161")],
+            "src": [("TCP", "222"), ("UDP", "161"), ("TCP", "443")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_aaep": {
-            "src": [("TCP", "22"), ("TCP", "5432"), ("UDP", "161")],
+            "src": [("TCP", "22"), ("TCP", "5432"), ("UDP", "161"), ("TCP", "443")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_mpp": {
@@ -63,19 +63,19 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
             "dst": [],
         },
         "exporter_ipo": {
-            "src": [("TCP", "22"), ("TCP", "8443")],
+            "src": [("TCP", "22"), ("TCP", "8443"), ("TCP", "161")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_iq": {
-            "src": [("TCP", "22")],
+            "src": [("TCP", "22"), ("TCP", "443")],
             "dst": [],
         },
         "exporter_weblm": {
-            "src": [("TCP", "22")],
+            "src": [("TCP", "22"), ("TCP", "443")],
             "dst": [],
         },
         "exporter_aacc": {
-            "src": [("TCP", "9182")],
+            "src": [("TCP", "9182"), ("TCP", "443")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_wfodb": {
@@ -83,7 +83,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_verint": {
-            "src": [("TCP", "9182"), ("ICMP", "ping")],
+            "src": [("TCP", "9182"), ("ICMP", "ping"), ("TCP", "443")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_network": {
@@ -102,8 +102,8 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
             "src": [("TCP", "9182"), ("TCP", "27000")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
-        "exporter_mpp": {
-            "src": [("TCP", "22")],
+        "exporter_jmx": {
+            "src": [("TCP", "7080")],
             "dst": [],
         },
         "exporter_breeze": {
@@ -111,10 +111,49 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
             "dst": [],
         },
         "exporter_acm": {
-            "src": [("TCP", "22"), ("TCP", "5022")],
+            "src": [("TCP", "22"), ("TCP", "5022"), ("TCP", "443"), ("TCP", "161")],
             "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
         },
-
+        "exporter_vmware": {
+            "src": [("TCP", "22"), ("ICMP", "PING"), ("TCP", "443")],
+            "dst": [],
+        },
+        "exporter_kafka": {
+            "src": [("TCP", "9092")],
+            "dst": [],
+        },
+        "exporter_drac": {
+            "src": [("TCP", "22"), ("ICMP", "PING"), ("TCP", "161")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_pfsense": {
+            "src": [("TCP", "22"), ("ICMP", "PING"), ("TCP", "161")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_aic": {
+            "src": [("TCP", "9183"), ("ICMP", "ping")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_voiceportal": {
+            "src": [("TCP", "5432"), ("ICMP", "ping"), ("TCP", "443"), ("TCP", "22")],
+            "dst": [],
+        },
+        "exporter_aam": {
+            "src": [("ICMP", "ping"), ("TCP", "443"), ("TCP", "22"), ("TCP", "161")],
+            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
+        },
+        "exporter_pc5": {
+            "src": [("ICMP", "ping"), ("TCP", "22")],
+            "dst": [],
+        },
+        "exporter_audiocodes": {
+            "src": [("ICMP", "ping"), ("TCP", "22"), ("TCP", "161")],
+            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
+        },
+        "exporter_redis": {
+            "src": [("TCP", "6379")],
+            "dst": [],
+        },
        }
 
     unique_entries = set()
