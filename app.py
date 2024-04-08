@@ -63,7 +63,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
             "dst": [],
         },
         "exporter_ipo": {
-            "src": [("TCP", "22"), ("TCP", "8443"), ("TCP", "161")],
+            "src": [("TCP", "22"), ("TCP", "8443"), ("UDP", "161")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_iq": {
@@ -111,7 +111,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_acm": {
-            "src": [("TCP", "22"), ("TCP", "5022"), ("TCP", "443"), ("TCP", "161")],
+            "src": [("TCP", "22"), ("TCP", "5022"), ("TCP", "443"), ("UDP", "161")],
             "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
         },
         "exporter_vmware": {
@@ -123,11 +123,11 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
             "dst": [],
         },
         "exporter_drac": {
-            "src": [("TCP", "22"), ("ICMP", "PING"), ("TCP", "161")],
+            "src": [("TCP", "22"), ("ICMP", "PING"), ("UDP", "161")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_pfsense": {
-            "src": [("TCP", "22"), ("ICMP", "PING"), ("TCP", "161")],
+            "src": [("TCP", "22"), ("ICMP", "PING"), ("UDP", "161")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_aic": {
@@ -139,7 +139,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
             "dst": [],
         },
         "exporter_aam": {
-            "src": [("ICMP", "ping"), ("TCP", "443"), ("TCP", "22"), ("TCP", "161")],
+            "src": [("ICMP", "ping"), ("TCP", "443"), ("TCP", "22"), ("UDP", "161")],
             "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
         },
         "exporter_pc5": {
@@ -147,7 +147,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
             "dst": [],
         },
         "exporter_audiocodes": {
-            "src": [("ICMP", "ping"), ("TCP", "22"), ("TCP", "161")],
+            "src": [("ICMP", "ping"), ("TCP", "22"), ("UDP", "161")],
             "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
         },
         "exporter_redis": {
