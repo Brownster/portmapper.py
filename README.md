@@ -1,22 +1,106 @@
-# portmapper.py
-maps ips to used ports based on server monitoring functionality
+# Port Mapper - Firewall Request Generator
 
-    When the user navigates to the root URL (e.g., http://localhost:5000/), they will be served the index.html template, which displays a form to upload a CSV file and input the MaaS-NG IP address.
+This Flask application automates the generation of firewall requests from uploaded CSV files. It parses specific network configurations from the CSV, matches them against a predefined set of exporter configurations, and outputs a new CSV with detailed firewall rules.
 
-    The user fills in the MaaS-NG IP address and selects a CSV file to upload, then clicks the "Upload" button.
+## Features
 
-    The form data is sent as a POST request to the root URL. In the upload_csv() function, the Flask app checks if the file is present and if the MaaS-NG IP address is provided. If either is missing, it will flash an appropriate error message and redirect back to the form.
+- **CSV Upload**: Users can upload CSV files containing details about network endpoints.
+- **Rule Mapping**: Maps incoming and outgoing rules based on predefined configurations.
+- **FQDN and IP Handling**: Handles both Fully Qualified Domain Names (FQDN) and IP addresses to specify sources and destinations.
+- **Secure File Handling**: Temporarily stores uploaded files in a secure manner and cleans up old files regularly.
+- **User Feedback**: Provides user feedback via flash messages for file upload success or failure.
 
-    If the file is uploaded and the MaaS-NG IP address is provided, the contents of the CSV file are stored in the user session and the user is redirected to the /process route with the MaaS-NG IP address as a query parameter.
+Here is a breakdown of the required CSV file fields mentioned in your script:
 
-    In the process() function, the Flask app reads the uploaded CSV file from the session and extracts the hostnames. It then renders the process.html template, which displays the hostnames and the MaaS-NG IP address, and allows the user to select the hostnames they want to include in the output CSV file.
+    FQDN: Fully Qualified Domain Name of the target server. This field is crucial as it is used to match the target server in the firewall rule entries.
+    IP Address: The IP address of the target server. Like the FQDN, it is used to specify the source or destination IP in firewall rules.
+    Exporter_name_os: This field appears to indicate the operating system or platform specific exporter configurations, which determine what ports and protocols are allowed for source communications.
+    Exporter_name_app: This field seems to represent the application-specific exporter configurations, detailing the ports and protocols used for destination communications.
 
-    The user selects the hostnames they want to include and clicks the "Generate Output CSV" button.
+These fields are utilized in the script to determine the rule mappings and to generate the necessary firewall configurations. When you create a CSV file for upload, each record should at least include these columns to ensure the script can process it correctly.
+Example CSV Structure
 
-    The form data is sent as a POST request to the /generate_output_csv route. The Flask app reads the uploaded CSV file from the session again, as well as the selected hostnames and MaaS-NG IP address from the form data.
+Your CSV files should have a structure similar to the following:
 
-    The create_port_csv() function is called with the provided input file, an empty StringIO object for the output file, the MaaS-NG IP address, and the selected hostnames. The function processes the input CSV file according to the port mappings and writes the result to the output file.
+csv
 
-    After processing, the Flask app sends the output StringIO object as a CSV file to the user with the filename output.csv.
+FQDN,IP Address,Exporter_name_os,Exporter_name_app
+example1.domain.com,192.168.1.1,exporter_linux,exporter_iq
+example2.domain.com,192.168.1.2,exporter_windows,exporter_aacc
 
-Throughout this process, the Flask application reads and processes the input CSV file, filters the hostnames based on user selection, and generates an output CSV file containing the port mappings.
+Tips for CSV File Preparation
+
+    Consistency: Ensure that the column headers in your CSV files match exactly with the field identifiers expected by the script. This includes maintaining the same case and spelling.
+    Validation: Validate the data in each column to ensure that IP addresses are properly formatted, FQDNs are valid, and exporter names correspond to those defined in your port mappings.
+
+
+## Prerequisites
+
+Before you can run this application, you'll need the following installed:
+- Python 3.6 or higher
+- Flask
+- Werkzeug (usually installed with Flask)
+
+## Installation
+
+To set up the project locally, follow these steps:
+
+1. **Clone the Repository**
+
+   ```bash
+   git clone https://github.com/Brownster/portmapper.git
+   cd firewall-request-generator
+
+    Set Up a Virtual Environment (optional but recommended):
+
+    bash
+
+python -m venv venv
+source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+
+Install Dependencies
+
+bash
+
+pip install -r requirements.txt
+
+This command installs all the necessary Python packages, including Flask.
+
+Environment Variables
+
+Set up the necessary environment variables, if any (e.g., FLASK_APP, FLASK_ENV for development).
+
+bash
+
+    export FLASK_APP=app.py
+    export FLASK_ENV=development
+
+Running the Application
+
+To run the application locally:
+
+bash
+
+flask run
+
+This will start the Flask server on http://127.0.0.1:5000/, where you can access the web interface to upload CSV files and generate firewall requests.
+Usage
+
+    Access the Web Interface: Open a web browser and go to http://127.0.0.1:5000/.
+    Upload a CSV File: Click the "Browse" button to select a CSV file from your computer that matches the expected format.
+    Submit the Form: After selecting the file, enter the required MaaS-NG IP and FQDN, then submit the form.
+    Download the Resulting CSV: If the file is processed successfully, you will be prompted to download the resulting CSV with the firewall rules.
+
+Contributing
+
+Contributions are welcome, and any contributions you make are greatly appreciated.
+
+    Fork the Project
+    Create your Feature Branch (git checkout -b feature/AmazingFeature)
+    Commit your Changes (git commit -m 'Add some AmazingFeature')
+    Push to the Branch (git push origin feature/AmazingFeature)
+    Open a Pull Request
+
+License
+
+Distributed under the MIT License. See LICENSE for more information.
