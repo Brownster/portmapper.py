@@ -27,31 +27,31 @@ def cleanup_old_files(directory, max_age_in_seconds):
 def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_hostnames=None):
     port_mappings = {
         "exporter_aes": {
-            "src": [("TCP", "22")],
-            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162"), ("TCP", "443")],
+            "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "443"), ("SSL", "443")],
+            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
         },
         "exporter_gateway": {
             "src": [("UDP", "161"), ("TCP", "22"), ("ICMP", "ping")],
             "dst": [("UDP", "162")],
         },
         "exporter_ams": {
-            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "8443")],
+            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "8443"), ("ICMP", "ping"), ("SSL", "8443")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_sm": {
-            "src": [("TCP", "22")],
-            "dst": [],
+            "src": [("TCP", "22"), ("ICMP", "ping")],
+            "dst": [("UDP", "162")],
         },
         "exporter_avayasbc": {
-            "src": [("TCP", "222"), ("UDP", "161"), ("TCP", "443")],
+            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_aaep": {
-            "src": [("TCP", "22"), ("TCP", "5432"), ("UDP", "161"), ("TCP", "443")],
+            "src": [("TCP", "22"), ("TCP", "5432"), ("UDP", "161"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_mpp": {
-            "src": [("TCP", "22")],
+            "src": [("TCP", "22"), ("ICMP", "ping")],
             "dst": [],
         },
         "exporter_windows": {
@@ -67,15 +67,15 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_iq": {
-            "src": [("TCP", "22"), ("TCP", "443")],
+            "src": [("TCP", "22"), ("TCP", "443"), ("ICMP", "ping")],
             "dst": [],
         },
         "exporter_weblm": {
-            "src": [("TCP", "22"), ("TCP", "443")],
+            "src": [("TCP", "22"), ("TCP", "8443"), ("ICMP", "ping"), ("SSL", "8443")],
             "dst": [],
         },
         "exporter_aacc": {
-            "src": [("TCP", "9182"), ("TCP", "443")],
+            "src": [("TCP", "9182"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_wfodb": {
@@ -83,35 +83,35 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_verint": {
-            "src": [("TCP", "9182"), ("ICMP", "ping"), ("TCP", "443")],
+            "src": [("TCP", "9182"), ("ICMP", "ping"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_network": {
-            "src": [("UDP", "161")],
+            "src": [("UDP", "161"), ("ICMP", "ping")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_tcti": {
-            "src": [("TCP", "8080")],
+            "src": [("TCP", "8080"), ("ICMP", "ping")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_callback": {
-            "src": [("TCP", "1433")],
+            "src": [("TCP", "1433"), ("ICMP", "ping")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_nuancelm": {
-            "src": [("TCP", "9182"), ("TCP", "27000")],
+            "src": [("TCP", "9182"), ("TCP", "27000"), ("ICMP", "ping")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_jmx": {
-            "src": [("TCP", "7080")],
+            "src": [("TCP", "7080"), ("ICMP", "ping")],
             "dst": [],
         },
         "exporter_breeze": {
-            "src": [("TCP", "22")],
+            "src": [("TCP", "22"), ("ICMP", "ping"), ("SSL", "443")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_acm": {
-            "src": [("TCP", "22"), ("TCP", "5022"), ("TCP", "443"), ("UDP", "161")],
+            "src": [("TCP", "22"), ("TCP", "5022"), ("TCP", "443"), ("UDP", "161"), ("ICMP", "ping"), ("SSL", "443")],
             "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
         },
         "exporter_vmware": {
@@ -131,7 +131,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_aic": {
-            "src": [("TCP", "9183"), ("ICMP", "ping")],
+            "src": [("TCP", "9183"), ("ICMP", "ping"), ("SSL", "443")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_voiceportal": {
@@ -139,7 +139,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [],
         },
         "exporter_aam": {
-            "src": [("ICMP", "ping"), ("TCP", "443"), ("TCP", "22"), ("UDP", "161")],
+            "src": [("ICMP", "ping"), ("TCP", "443"), ("TCP", "22"), ("UDP", "161"), ("SSL", "443")],
             "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
         },
         "exporter_pc5": {
@@ -147,8 +147,8 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [],
         },
         "exporter_audiocodes": {
-            "src": [("ICMP", "ping"), ("TCP", "22"), ("UDP", "161")],
-            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
+            "src": [("ICMP", "ping"), ("TCP", "22"), ("UDP", "161"), ("SSL", "443")],
+            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162"), ("SSL", "443")],
         },
         "exporter_redis": {
             "src": [("TCP", "6379")],
