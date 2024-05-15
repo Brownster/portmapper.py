@@ -33,6 +33,15 @@ Tips for CSV File Preparation
     Consistency: Ensure that the column headers in your CSV files match exactly with the field identifiers expected by the script. This includes maintaining the same case and spelling.
     Validation: Validate the data in each column to ensure that IP addresses are properly formatted, FQDNs are valid, and exporter names correspond to those defined in your port mappings.
 
+PORT MAPPINGS
+    define the prometheus exporter src is from the monitoring server to the target and dst is from target server to monitoring server
+
+    port_mappings = {
+        "exporter_aes": {
+            "src": [("TCP", "22"), ("TCP", "443")],
+            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
+        },
+
 
 ## Prerequisites
 
