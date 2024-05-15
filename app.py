@@ -24,7 +24,7 @@ def cleanup_old_files(directory, max_age_in_seconds):
                 os.remove(file_path)
 
 # Your existing function create_port_csv
-def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None):
+def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_hostnames=None):
     port_mappings = {
         "exporter_aes": {
             "src": [("TCP", "22")],
@@ -160,9 +160,10 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
 
     reader = csv.DictReader(input_file)
     writer = csv.writer(output_file)
-    writer.writerow(["Source_IP_Address", "Destination_IP_Address", "Port"])
+    writer.writerow(["Source_FQDN", "Source_IP_Address", "Destination_FQDN", "Destination_IP_Address", "Port"])
 
     for row in reader:
+        target_fqdn = row["FQDN"]
         fqdn = row["FQDN"]
         if selected_hostnames is not None and fqdn not in selected_hostnames:
             continue
@@ -176,13 +177,13 @@ def create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames=None
         for exporter in exporters:
             if exporter in port_mappings:
                 for protocol, port in port_mappings[exporter]["src"]:
-                    entry = (maas_ng_ip, ip, f"{protocol}: {port}")
+                    entry = (maas_ng_fqdn, maas_ng_ip, target_fqdn, ip, f"{protocol}: {port}")
                     if entry not in unique_entries:
                         writer.writerow(entry)
                         unique_entries.add(entry)
 
                 for protocol, port in port_mappings[exporter]["dst"]:
-                    entry = (ip, maas_ng_ip, f"{protocol}: {port}")
+                    entry = (target_fqdn, ip, maas_ng_fqdn, maas_ng_ip, f"{protocol}: {port}")
                     if entry not in unique_entries:
                         writer.writerow(entry)
                         unique_entries.add(entry)
@@ -194,6 +195,11 @@ def upload_csv():
             flash("No file selected")
             return redirect(request.url)
 
+        maas_ng_fqdn = request.form.get("maas_ng_fqdn")
+        if not maas_ng_fqdn:
+            flash("MaaS-NG FQDN is required")
+            return redirect(request.url)
+        
         maas_ng_ip = request.form.get("maas_ng_ip")
         if not maas_ng_ip:
             flash("MaaS-NG IP address is required")
@@ -234,6 +240,7 @@ def process():
 @app.route("/generate_output_csv", methods=["POST"])
 def generate_output_csv():
     selected_hostnames = request.form.getlist("selected_hostnames")
+    maas_ng_fqdn = request.form["maas_ng_fqdn"]
     maas_ng_ip = request.form["maas_ng_ip"]
     file_path = session.get("file_path")
 
@@ -242,7 +249,7 @@ def generate_output_csv():
         return redirect(url_for("upload_csv"))
 
     with open(file_path, mode='r', encoding='utf-8') as input_file, io.StringIO() as output_file:
-        create_port_csv(input_file, output_file, maas_ng_ip, selected_hostnames)
+        create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_hostnames)
         
         output_file.seek(0)
         output_filename = secure_filename(str(uuid.uuid4()) + '_output.csv')
