@@ -15,18 +15,15 @@ Here is a breakdown of the required CSV file fields mentioned in your script:
     FQDN: Fully Qualified Domain Name of the target server. This field is crucial as it is used to match the target server in the firewall rule entries.
     IP Address: The IP address of the target server. Like the FQDN, it is used to specify the source or destination IP in firewall rules.
     Exporter_name_os: This field appears to indicate the operating system or platform specific exporter configurations, which determine what ports and protocols are allowed for source communications.
-    Exporter_name_app: This field seems to represent the application-specific exporter configurations, detailing the ports and protocols used for destination communications.
+    Exporter_name_app: Application-specific exporter configurations, detailing the ports and protocols used for destination communications.
 
 These fields are utilized in the script to determine the rule mappings and to generate the necessary firewall configurations. When you create a CSV file for upload, each record should at least include these columns to ensure the script can process it correctly.
 Example CSV Structure
 
 Your CSV files should have a structure similar to the following:
 
-csv
-
 FQDN,IP Address,Exporter_name_os,Exporter_name_app
-example1.domain.com,192.168.1.1,exporter_linux,exporter_iq
-example2.domain.com,192.168.1.2,exporter_windows,exporter_aacc
+
 
 Tips for CSV File Preparation
 
@@ -41,6 +38,31 @@ PORT MAPPINGS
             "src": [("TCP", "22"), ("TCP", "443")],
             "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
         },
+
+EXAMPLE INPUT CSV AND OUTPUT CSV:
+FQDN,IP Address,Exporter_name_os,Exporter_name_app
+server1.example.com,192.168.1.10,exporter_linux,exporter_iq
+server2.example.com,192.168.1.11,exporter_windows,exporter_aacc
+server3.example.com,192.168.1.12,exporter_vmware,exporter_breeze
+
+This CSV contains the necessary information about several servers, specifying both the operating system and application-specific firewall rule settings.
+Example Output CSV
+
+Based on the input data and the provided exporter configurations, the output would list detailed firewall rules needed for each server. For simplicity, let's say the Monitoring Server IP is 10.10.10.10 and its FQDN is monitor.example.com.
+
+The output might look like this:
+
+Source_FQDN,Source_IP_Address,Destination_FQDN,Destination_IP_Address,Port
+monitor.example.com,10.10.10.10,server1.example.com,192.168.1.10,"TCP: 22"
+monitor.example.com,10.10.10.10,server1.example.com,192.168.1.10,"TCP: 443"
+server1.example.com,192.168.1.10,monitor.example.com,10.10.10.10,"UDP: 514"
+server1.example.com,192.168.1.10,monitor.example.com,10.10.10.10,"TCP: 514"
+server2.example.com,192.168.1.11,monitor.example.com,10.10.10.10,"UDP: 514"
+server2.example.com,192.168.1.11,monitor.example.com,10.10.10.10,"TCP: 514"
+server3.example.com,192.168.1.12,monitor.example.com,10.10.10.10,"UDP: 162"
+server3.example.com,192.168.1.12,monitor.example.com,10.10.10.10,"UDP: 514"
+server3.example.com,192.168.1.12,monitor.example.com,10.10.10.10,"TCP: 514"
+
 
 
 ## Prerequisites
