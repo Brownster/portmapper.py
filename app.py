@@ -223,6 +223,7 @@ def upload_csv():
 @app.route("/process")
 def process():
     maas_ng_ip = request.args.get("maas_ng_ip")
+    maas_ng_fqdn = session.get("maas_ng_fqdn")
     file_path = session.get("file_path")
 
     if not file_path or not os.path.exists(file_path):
@@ -235,7 +236,7 @@ def process():
         for row in reader:
             hostnames.append(row["FQDN"])
 
-    return render_template("process.html", hostnames=hostnames, maas_ng_ip=maas_ng_ip)
+    return render_template("process.html", hostnames=hostnames, maas_ng_ip=maas_ng_ip, maas_ng_fqdn=maas_ng_fqdn)
 
 @app.route("/generate_output_csv", methods=["POST"])
 def generate_output_csv():
