@@ -39,7 +39,7 @@
     <form method="post" action="{{ url_for('generate_output_csv') }}" onsubmit="return validateForm()">
         <h1>Process Hostnames</h1>
         <input type="hidden" name="maas_ng_ip" value="{{ maas_ng_ip }}">
-        <input type="hidden" name="maas_ng_fqdn" value="{{ maas_ng_fqdn ] }}">
+        <input type="hidden" name="maas_ng_fqdn" value="{{ maas_ng_fqdn }}">
         <label><input type="checkbox" id="check_all" onclick="toggleCheckboxes()"> Check All</label>
         <ul>
             {% for hostname in hostnames %}
