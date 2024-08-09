@@ -1,9 +1,9 @@
-from flask import Flask, request, redirect, url_for, flash, send_file, session, render_template
 import io
 import csv
 import os
 import uuid
 import time
+from flask import Flask, request, redirect, url_for, flash, send_file, session, render_template
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -27,7 +27,8 @@ def cleanup_old_files(directory, max_age_in_seconds):
 def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_hostnames=None):
     port_mappings = {
         "exporter_aes": {
-            "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "443"), ("SSL", "443")],
+            "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "443"),
+                    ("SSL", "443")],
             "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
         },
         "exporter_gateway": {
@@ -35,7 +36,8 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [("UDP", "162")],
         },
         "exporter_ams": {
-            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "8443"), ("ICMP", "ping"), ("SSL", "8443")],
+            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "8443"),
+                    ("ICMP", "ping"), ("SSL", "8443")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_sm": {
@@ -43,11 +45,13 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [("UDP", "162")],
         },
         "exporter_avayasbc": {
-            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
+            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "443"),
+                    ("ICMP", "ping"), ("SSL", "443")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_aaep": {
-            "src": [("TCP", "22"), ("TCP", "5432"), ("UDP", "161"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
+            "src": [("TCP", "22"), ("TCP", "5432"), ("UDP", "161"),
+                    ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_mpp": {
@@ -71,11 +75,13 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [],
         },
         "exporter_weblm": {
-            "src": [("TCP", "22"), ("TCP", "8443"), ("ICMP", "ping"), ("SSL", "8443")],
+            "src": [("TCP", "22"), ("TCP", "8443"), ("ICMP", "ping"),
+                    ("SSL", "8443")],
             "dst": [],
         },
         "exporter_aacc": {
-            "src": [("TCP", "9182"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
+            "src": [("TCP", "9182"), ("TCP", "443"), ("ICMP", "ping"),
+                    ("SSL", "443")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_wfodb": {
@@ -83,7 +89,8 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_verint": {
-            "src": [("TCP", "9182"), ("ICMP", "ping"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
+            "src": [("TCP", "9182"), ("ICMP", "ping"), ("TCP", "443"),
+                    ("ICMP", "ping"), ("SSL", "443")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_network": {
@@ -111,7 +118,8 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_acm": {
-            "src": [("TCP", "22"), ("TCP", "5022"), ("TCP", "443"), ("UDP", "161"), ("ICMP", "ping"), ("SSL", "443")],
+            "src": [("TCP", "22"), ("TCP", "5022"), ("TCP", "443"),
+                    ("UDP", "161"), ("ICMP", "ping"), ("SSL", "443")],
             "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
         },
         "exporter_vmware": {
@@ -139,7 +147,8 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [],
         },
         "exporter_aam": {
-            "src": [("ICMP", "ping"), ("TCP", "443"), ("TCP", "22"), ("UDP", "161"), ("SSL", "443")],
+            "src": [("ICMP", "ping"), ("TCP", "443"), ("TCP", "22"),
+                    ("UDP", "161"), ("SSL", "443")],
             "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
         },
         "exporter_pc5": {
@@ -251,7 +260,7 @@ def generate_output_csv():
 
     with open(file_path, mode='r', encoding='utf-8') as input_file, io.StringIO() as output_file:
         create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_hostnames)
-        
+
         output_file.seek(0)
         output_filename = secure_filename(str(uuid.uuid4()) + '_output.csv')
         output_file_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
