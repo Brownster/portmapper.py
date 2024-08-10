@@ -174,7 +174,10 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
 
     reader = csv.DictReader(input_file)
     writer = csv.writer(output_file)
-    writer.writerow(["Source_FQDN", "Source_IP_Address", "Destination_FQDN", "Destination_IP_Address", "Port"])
+    writer.writerow([
+        "Source_FQDN", "Source_IP_Address", "Destination_FQDN", 
+        "Destination_IP_Address", "Port"
+    ])
 
     for row in reader:
         target_fqdn = row["FQDN"]
@@ -252,7 +255,12 @@ def process():
         for row in reader:
             hostnames.append(row["FQDN"])
 
-    return render_template("process.html", hostnames=hostnames, maas_ng_ip=maas_ng_ip, maas_ng_fqdn=maas_ng_fqdn)
+    return render_template(
+        "process.html",
+        hostnames=hostnames,
+        maas_ng_ip=maas_ng_ip,
+        maas_ng_fqdn=maas_ng_fqdn
+    )
 
 @app.route("/generate_output_csv", methods=["POST"])
 def generate_output_csv():
