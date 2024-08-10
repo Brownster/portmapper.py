@@ -18,6 +18,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Function to delete old temporary files
 def cleanup_old_files(directory, max_age_in_seconds):
+    """Delete files older than max_age_in_seconds from the directory."""
     current_time = time.time()
     for filename in os.listdir(directory):
         file_path = os.path.join(directory, filename)
@@ -28,6 +29,7 @@ def cleanup_old_files(directory, max_age_in_seconds):
 
 # Your existing function create_port_csv
 def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_hostnames=None):
+    """Generate a CSV file with port mappings for the selected hostnames."""
     port_mappings = {
         "exporter_aes": {
             "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "443"),
@@ -202,6 +204,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
 
 @app.route("/", methods=["GET", "POST"])
 def upload_csv():
+    """Handle file uploads and redirect to the processing page."""
     if request.method == "POST":
         if "file" not in request.files:
             flash("No file selected")
@@ -234,6 +237,7 @@ def upload_csv():
 
 @app.route("/process")
 def process():
+    """Process the uploaded file and display the list of hostnames."""
     maas_ng_ip = request.args.get("maas_ng_ip")
     maas_ng_fqdn = session.get("maas_ng_fqdn")
     file_path = session.get("file_path")
@@ -252,6 +256,7 @@ def process():
 
 @app.route("/generate_output_csv", methods=["POST"])
 def generate_output_csv():
+    """Generate and download the output CSV based on selected hostnames."""
     selected_hostnames = request.form.getlist("selected_hostnames")
     maas_ng_fqdn = request.form["maas_ng_fqdn"]
     maas_ng_ip = request.form["maas_ng_ip"]
