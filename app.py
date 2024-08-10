@@ -166,7 +166,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "src": [("TCP", "6379")],
             "dst": [],
         },
-       }
+    }
 
     unique_entries = set()
 
@@ -179,7 +179,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
         fqdn = row["FQDN"]
         if selected_hostnames is not None and fqdn not in selected_hostnames:
             continue
-            
+
         ip = row["IP Address"]
         exporter_name_os = row["Exporter_name_os"]
         exporter_name_app = row["Exporter_name_app"]
@@ -211,7 +211,7 @@ def upload_csv():
         if not maas_ng_fqdn:
             flash("MaaS-NG FQDN is required")
             return redirect(request.url)
-        
+
         maas_ng_ip = request.form.get("maas_ng_ip")
         if not maas_ng_ip:
             flash("MaaS-NG IP address is required")
