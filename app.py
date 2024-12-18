@@ -199,13 +199,13 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
         for exporter in exporters:
             if exporter in port_mappings:
                 for protocol, port in port_mappings[exporter]["src"]:
-                    entry = (maas_ng_fqdn, maas_ng_ip, target_fqdn, ip, f"{protocol}: {port}")
+                    entry = (maas_ng_fqdn, maas_ng_ip, target_fqdn, ip, protocol, port)
                     if entry not in unique_entries:
                         writer.writerow(entry)
                         unique_entries.add(entry)
 
                 for protocol, port in port_mappings[exporter]["dst"]:
-                    entry = (target_fqdn, ip, maas_ng_fqdn, maas_ng_ip, f"{protocol}: {port}")
+                    entry = (target_fqdn, ip, maas_ng_fqdn, maas_ng_ip, protocol, port)
                     if entry not in unique_entries:
                         writer.writerow(entry)
                         unique_entries.add(entry)
