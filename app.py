@@ -31,6 +31,11 @@ def cleanup_old_files(directory, max_age_in_seconds):
 def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_hostnames=None):
     """Generate a CSV file with port mappings for the selected hostnames."""
     port_mappings = {
+        "exporter_cms": {
+            "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "443"),
+                    ("SSL", "443")],
+            "dst": [],
+        },
         "exporter_aes": {
             "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "443"),
                     ("SSL", "8443")],
