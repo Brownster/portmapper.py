@@ -33,11 +33,11 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
     port_mappings = {
         "exporter_aes": {
             "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "8443")
-                    ("SSL", "443")],
+                    ("SSL", "8443")],
             "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
         },
         "exporter_aessnmp": {
-            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "443"),
+            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "8443"),
                     ("ICMP", "ping"), ("SSL", "8443")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
@@ -55,7 +55,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [("UDP", "162")],
         },
         "exporter_avayasbc": {
-            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "8443"),
+            "src": [("TCP", "22"), ("TCP", "222"), ("UDP", "161"), ("TCP", "8443"),
                     ("ICMP", "ping"), ("SSL", "8443")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
@@ -85,7 +85,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [],
         },
         "exporter_weblm": {
-            "src": [("TCP", "22"), ("TCP", "8443"), ("ICMP", "ping"),
+            "src": [("TCP", "22"), ("TCP", "8443"), ("TCP", "52233"), ("ICMP", "ping"),
                     ("SSL", "8443"), ("SSL", "52233")],
             "dst": [],
         },
