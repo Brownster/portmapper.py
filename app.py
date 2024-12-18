@@ -191,10 +191,14 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             continue
 
         ip = row["IP Address"]
-        exporter_name_os = row["Exporter_name_os"]
-        exporter_name_app = row["Exporter_name_app"]
-
-        exporters = [exporter_name_os, exporter_name_app]
+        # Collect all exporter names, filtering out None or empty values
+        exporters = [
+            row.get("Exporter_name_os"), 
+            row.get("Exporter_name_app"), 
+            row.get("Exporter_name_app_2"), 
+            row.get("Exporter_name_app_3")
+        ]
+        exporters = [exporter for exporter in exporters if exporter]
 
         for exporter in exporters:
             if exporter in port_mappings:
