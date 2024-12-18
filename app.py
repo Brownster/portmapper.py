@@ -32,9 +32,14 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
     """Generate a CSV file with port mappings for the selected hostnames."""
     port_mappings = {
         "exporter_aes": {
-            "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "443"),
+            "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "8443")
                     ("SSL", "443")],
             "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
+        },
+        "exporter_aessnmp": {
+            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "443"),
+                    ("ICMP", "ping"), ("SSL", "8443")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_gateway": {
             "src": [("UDP", "161"), ("TCP", "22"), ("ICMP", "ping")],
@@ -50,13 +55,13 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [("UDP", "162")],
         },
         "exporter_avayasbc": {
-            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "443"),
-                    ("ICMP", "ping"), ("SSL", "443")],
+            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "8443"),
+                    ("ICMP", "ping"), ("SSL", "8443")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_aaep": {
             "src": [("TCP", "22"), ("TCP", "5432"), ("UDP", "161"),
-                    ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
+                    ("TCP", "8443"), ("ICMP", "ping"), ("SSL", "8443")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_mpp": {
@@ -76,17 +81,17 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_iq": {
-            "src": [("TCP", "22"), ("TCP", "443"), ("ICMP", "ping")],
+            "src": [("TCP", "22"), ("TCP", "8443"), ("ICMP", "ping")],
             "dst": [],
         },
         "exporter_weblm": {
             "src": [("TCP", "22"), ("TCP", "8443"), ("ICMP", "ping"),
-                    ("SSL", "8443")],
+                    ("SSL", "8443"), ("SSL", "52233")],
             "dst": [],
         },
         "exporter_aacc": {
-            "src": [("TCP", "9182"), ("TCP", "443"), ("ICMP", "ping"),
-                    ("SSL", "443")],
+            "src": [("TCP", "9182"), ("TCP", "8443"), ("ICMP", "ping"),
+                    ("SSL", "8443")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_wfodb": {
@@ -94,8 +99,8 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_verint": {
-            "src": [("TCP", "9182"), ("ICMP", "ping"), ("TCP", "443"),
-                    ("ICMP", "ping"), ("SSL", "443")],
+            "src": [("TCP", "9182"), ("ICMP", "ping"), ("TCP", "8443"),
+                    ("ICMP", "ping"), ("SSL", "8443")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_network": {
@@ -119,16 +124,16 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [],
         },
         "exporter_breeze": {
-            "src": [("TCP", "22"), ("ICMP", "ping"), ("SSL", "443")],
+            "src": [("TCP", "22"), ("ICMP", "ping"), ("SSL", "8443")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_acm": {
-            "src": [("TCP", "22"), ("TCP", "5022"), ("TCP", "443"),
-                    ("UDP", "161"), ("ICMP", "ping"), ("SSL", "443")],
+            "src": [("TCP", "22"), ("TCP", "5022"), ("TCP", "8443"),
+                    ("UDP", "161"), ("ICMP", "ping"), ("SSL", "8443")],
             "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
         },
         "exporter_vmware": {
-            "src": [("TCP", "22"), ("ICMP", "PING"), ("TCP", "443")],
+            "src": [("TCP", "22"), ("ICMP", "PING"), ("TCP", "8443")],
             "dst": [],
         },
         "exporter_kafka": {
@@ -144,16 +149,16 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_aic": {
-            "src": [("TCP", "9183"), ("ICMP", "ping"), ("SSL", "443")],
+            "src": [("TCP", "9183"), ("ICMP", "ping"), ("SSL", "8443")],
             "dst": [("UDP", "514"), ("TCP", "514")],
         },
         "exporter_voiceportal": {
-            "src": [("TCP", "5432"), ("ICMP", "ping"), ("TCP", "443"), ("TCP", "22")],
+            "src": [("TCP", "5432"), ("ICMP", "ping"), ("TCP", "8443"), ("TCP", "22")],
             "dst": [],
         },
         "exporter_aam": {
-            "src": [("ICMP", "ping"), ("TCP", "443"), ("TCP", "22"),
-                    ("UDP", "161"), ("SSL", "443")],
+            "src": [("ICMP", "ping"), ("TCP", "8443"), ("TCP", "22"),
+                    ("UDP", "161"), ("SSL", "8443")],
             "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
         },
         "exporter_pc5": {
@@ -161,8 +166,8 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [],
         },
         "exporter_audiocodes": {
-            "src": [("ICMP", "ping"), ("TCP", "22"), ("UDP", "161"), ("SSL", "443")],
-            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162"), ("SSL", "443")],
+            "src": [("ICMP", "ping"), ("TCP", "22"), ("UDP", "161"), ("SSL", "8443")],
+            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162"), ("SSL", "8443")],
         },
         "exporter_redis": {
             "src": [("TCP", "6379")],
