@@ -242,10 +242,15 @@ def upload_csv():
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
 
+            # Save to session
             session['file_path'] = file_path
+            session['maas_ng_fqdn'] = maas_ng_fqdn  # Store FQDN in session
+            session['maas_ng_ip'] = maas_ng_ip  # Store IP in session
+
             return redirect(url_for("process", maas_ng_ip=maas_ng_ip))
 
     return render_template("index.html")
+
 
 @app.route("/process")
 def process():
@@ -275,8 +280,8 @@ def process():
 def generate_output_csv():
     """Generate and download the output CSV based on selected hostnames."""
     selected_hostnames = request.form.getlist("selected_hostnames")
-    maas_ng_fqdn = request.form["maas_ng_fqdn"]
-    maas_ng_ip = request.form["maas_ng_ip"]
+    maas_ng_fqdn = session.get("maas_ng_fqdn")  # Retrieve FQDN from session
+    maas_ng_ip = session.get("maas_ng_ip")  # Retrieve IP from session
     file_path = session.get("file_path")
 
     if not file_path or not os.path.exists(file_path):
@@ -293,6 +298,7 @@ def generate_output_csv():
             final_output_file.write(output_file.getvalue())
 
         return send_file(output_file_path, as_attachment=True, download_name='output.csv')
+
 
 # Run the Flask app
 if __name__ == "__main__":
