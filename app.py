@@ -181,7 +181,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
     writer = csv.writer(output_file)
     writer.writerow([
         "Source_FQDN", "Source_IP_Address", "Destination_FQDN", 
-        "Destination_IP_Address", "Port"
+        "Destination_IP_Address", "Proto", "Port"
     ])
 
     for row in reader:
