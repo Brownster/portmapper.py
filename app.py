@@ -32,7 +32,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
     """Generate a CSV file with port mappings for the selected hostnames."""
     port_mappings = {
         "exporter_aes": {
-            "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "8443")
+            "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "8443"),
                     ("SSL", "8443")],
             "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
         },
