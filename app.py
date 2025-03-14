@@ -423,11 +423,43 @@ def generate_output_csv():
         elif output_format == 'pdf':
             # Convert CSV to HTML table
             df = pd.read_csv(output_file_path)
-            tables = [df.to_html(classes='data', index=False)]
+            
+            # Format protocol column with color-coded styling
+            def format_protocol(protocol):
+                protocol_lower = str(protocol).lower()
+                css_class = protocol_lower
+                if "icmp" in protocol_lower:
+                    css_class = "icmp"
+                elif "tcp" in protocol_lower:
+                    css_class = "tcp"
+                elif "udp" in protocol_lower:
+                    css_class = "udp"
+                elif "ssl" in protocol_lower:
+                    css_class = "ssl"
+                return f'<span class="protocol {css_class}">{protocol}</span>'
+            
+            # Apply the styling to the Proto column if it exists
+            if 'Proto' in df.columns:
+                df['Proto'] = df['Proto'].apply(format_protocol)
+                
+            # Get summary statistics for the PDF
+            device_count = len(selected_hostnames)
+            port_mapping_count = len(df)
+            
+            # Generate the HTML table
+            tables = [df.to_html(classes='data', index=False, escape=False)]
             
             # Generate PDF using the template
             now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            rendered = render_template('pdf_template.html', tables=tables, now=now)
+            rendered = render_template(
+                'pdf_template.html', 
+                tables=tables, 
+                now=now,
+                maas_ng_fqdn=maas_ng_fqdn,
+                maas_ng_ip=maas_ng_ip,
+                device_count=device_count,
+                port_mapping_count=port_mapping_count
+            )
             pdf_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{output_basename}.pdf")
             
             # Convert HTML to PDF
