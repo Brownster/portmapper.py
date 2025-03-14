@@ -4,46 +4,217 @@
     <meta charset="utf-8">
     <title>Firewall Request Report</title>
     <style>
+      /* Base styles */
       body {
         font-family: Arial, sans-serif;
-        font-size: 12px;
+        font-size: 11px;
         margin: 20px;
         line-height: 1.4;
+        color: #333;
       }
-      h1 {
-        text-align: center;
+      
+      /* Header section */
+      .header {
         margin-bottom: 30px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #2980b9;
       }
+      
+      .report-title {
+        color: #2980b9;
+        font-size: 24px;
+        margin-bottom: 5px;
+        text-align: center;
+      }
+      
+      .report-subtitle {
+        text-align: center;
+        color: #555;
+        font-size: 14px;
+        margin-top: 0;
+      }
+      
+      /* Info section */
+      .info-section {
+        margin: 20px 0;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        border-left: 4px solid #2980b9;
+      }
+      
+      .info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      
+      .info-item {
+        margin-bottom: 8px;
+      }
+      
+      .info-label {
+        font-weight: bold;
+        color: #555;
+      }
+      
+      /* Table styles */
       table {
         width: 100%;
         border-collapse: collapse;
-        margin-bottom: 20px;
+        margin: 20px 0;
+        font-size: 10px;
       }
+      
       table, th, td {
-        border: 1px solid #333;
+        border: 1px solid #ddd;
       }
+      
       th, td {
         padding: 8px;
         text-align: left;
       }
+      
       th {
+        background-color: #2980b9;
+        color: white;
+        font-weight: bold;
+      }
+      
+      tr:nth-child(even) {
         background-color: #f2f2f2;
       }
+      
+      /* Colored protocol indicators */
+      .protocol {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-weight: bold;
+      }
+      
+      .tcp {
+        background-color: #d4efdf;
+        color: #27ae60;
+      }
+      
+      .udp {
+        background-color: #e8daef;
+        color: #8e44ad;
+      }
+      
+      .icmp {
+        background-color: #ebdef0;
+        color: #2980b9;
+      }
+      
+      .ssl {
+        background-color: #fdebd0;
+        color: #e67e22;
+      }
+      
+      /* Summary section */
+      .summary-section {
+        margin-top: 25px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+      }
+      
+      .summary-title {
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #2980b9;
+      }
+      
+      .summary-list {
+        margin: 0;
+        padding-left: 20px;
+      }
+      
+      .summary-list li {
+        margin-bottom: 5px;
+      }
+      
+      /* Footer */
       .footer {
         text-align: center;
-        font-size: 10px;
+        font-size: 9px;
         margin-top: 40px;
-        color: #666;
+        color: #777;
+        border-top: 1px solid #ddd;
+        padding-top: 10px;
+      }
+      
+      /* Page break utilities */
+      .page-break {
+        page-break-after: always;
+      }
+      
+      /* Responsive adjustments for printing */
+      @media print {
+        body {
+          font-size: 10px;
+          margin: 15px;
+        }
+        
+        .report-title {
+          font-size: 20px;
+        }
+        
+        .info-section, .summary-section {
+          padding: 10px;
+        }
       }
     </style>
   </head>
   <body>
-    <h1>Firewall Request Report</h1>
+    <div class="header">
+      <h1 class="report-title">Firewall Port Request</h1>
+      <p class="report-subtitle">Network Monitoring Infrastructure Configuration</p>
+    </div>
+    
+    <div class="info-section">
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="info-label">Request Date:</span> {{ now }}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Request ID:</span> FW-{{ now.replace(":", "").replace(" ", "-")[:10] }}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Monitoring Server:</span> {{ maas_ng_fqdn }}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Server IP:</span> {{ maas_ng_ip }}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Total Devices:</span> {{ device_count }}
+        </div>
+        <div class="info-item">
+          <span class="info-label">Total Port Mappings:</span> {{ port_mapping_count }}
+        </div>
+      </div>
+    </div>
+    
+    <h2 style="font-size: 16px; color: #2980b9;">Port Mapping Details</h2>
     {% for table in tables %}
       {{ table | safe }}
     {% endfor %}
+    
+    <div class="summary-section">
+      <div class="summary-title">Port Request Summary</div>
+      <ul class="summary-list">
+        <li>This document requests firewall configuration for monitoring traffic between MaaS-NG server and target devices.</li>
+        <li>All requested ports are required for proper monitoring functionality of the systems.</li>
+        <li>Implementation should be completed within standard security guidelines.</li>
+        <li>For questions or clarification, please contact the monitoring team.</li>
+      </ul>
+    </div>
+    
     <div class="footer">
-      Generated on {{ now().strftime('%Y-%m-%d %H:%M:%S') }}
+      Generated on {{ now }} | Firewall Request Tool | For internal use only
     </div>
   </body>
 </html>
