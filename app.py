@@ -310,4 +310,169 @@ def upload_csv():
                 flash("Please upload a CSV file", "error")
                 return redirect(request.url)
         except Exception as e:
-            logger.error(f"Error in upload_
+            logger.error(f"Error in upload_csv: {e}")
+            flash(f"An error occurred: {str(e)}", "error")
+            return redirect(request.url)
+    
+    # Run cleanup in each request
+    try:
+        cleanup_old_files(app.config['UPLOAD_FOLDER'])
+    except Exception as e:
+        logger.error(f"Error cleaning up temporary files: {e}")
+    
+    return render_template("index.html")
+
+@app.route("/process", methods=["GET", "POST"])
+def process():
+    """Process the uploaded CSV file and display the hostnames for selection."""
+    # Check if we have a file path in the session
+    if 'file_path' not in session:
+        flash("Please upload a CSV file first", "error")
+        return redirect(url_for("upload_csv"))
+    
+    file_path = session['file_path']
+    maas_ng_fqdn = session.get('maas_ng_fqdn', '')
+    maas_ng_ip = session.get('maas_ng_ip', '')
+    
+    try:
+        # Read the CSV file and extract hostnames
+        hostnames = []
+        hostnames_info = []
+        
+        with open(file_path, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if 'FQDN' in row and row['FQDN'] and 'IP Address' in row and row['IP Address']:
+                    hostnames.append(row['FQDN'])
+                    hostnames_info.append({
+                        'fqdn': row['FQDN'],
+                        'ip': row['IP Address']
+                    })
+        
+        if not hostnames:
+            flash("No valid hostnames found in the uploaded CSV", "error")
+            return redirect(url_for("upload_csv"))
+        
+        return render_template(
+            "process.html", 
+            hostnames=hostnames, 
+            hostnames_info=hostnames_info, 
+            maas_ng_fqdn=maas_ng_fqdn, 
+            maas_ng_ip=maas_ng_ip
+        )
+        
+    except Exception as e:
+        logger.error(f"Error processing CSV: {e}")
+        flash(f"Error processing the uploaded file: {str(e)}", "error")
+        return redirect(url_for("upload_csv"))
+
+@app.route("/generate_output_csv", methods=["POST"])
+def generate_output_csv():
+    """Generate the output CSV file based on the selected hostnames."""
+    try:
+        # Get form data
+        selected_hostnames = request.form.getlist('selected_hostnames')
+        maas_ng_fqdn = request.form.get('maas_ng_fqdn')
+        maas_ng_ip = request.form.get('maas_ng_ip')
+        output_format = request.form.get('output_format', 'csv')
+        
+        if not selected_hostnames:
+            flash("Please select at least one hostname", "error")
+            return redirect(url_for("process"))
+        
+        if not maas_ng_fqdn or not maas_ng_ip:
+            flash("Missing MaaS-NG information", "error")
+            return redirect(url_for("upload_csv"))
+        
+        # Get the file path from session
+        input_file_path = session.get('file_path')
+        if not input_file_path:
+            flash("Please upload a CSV file first", "error")
+            return redirect(url_for("upload_csv"))
+        
+        # Generate a unique filename for the output
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_basename = f"firewall_request_{timestamp}"
+        
+        # Create the output file
+        output_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{output_basename}.csv")
+        
+        # Process the CSV file
+        with open(input_file_path, 'r') as input_file, open(output_file_path, 'w', newline='') as output_file:
+            processed_count, skipped_count = create_port_csv(
+                input_file, 
+                output_file, 
+                maas_ng_ip, 
+                maas_ng_fqdn, 
+                selected_hostnames
+            )
+        
+        # Convert to the requested format if needed
+        if output_format == 'excel':
+            excel_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{output_basename}.xlsx")
+            df = pd.read_csv(output_file_path)
+            df.to_excel(excel_file_path, index=False)
+            
+            return send_file(
+                excel_file_path,
+                as_attachment=True,
+                download_name=f"firewall_request_{timestamp}.xlsx",
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            
+        elif output_format == 'pdf':
+            # Convert CSV to HTML table
+            df = pd.read_csv(output_file_path)
+            tables = [df.to_html(classes='data', index=False)]
+            
+            # Generate PDF using the template
+            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            rendered = render_template('pdf_template.html', tables=tables, now=now)
+            pdf_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{output_basename}.pdf")
+            
+            # Convert HTML to PDF
+            try:
+                pdfkit.from_string(rendered, pdf_file_path)
+                return send_file(
+                    pdf_file_path,
+                    as_attachment=True,
+                    download_name=f"firewall_request_{timestamp}.pdf",
+                    mimetype="application/pdf"
+                )
+            except Exception as e:
+                logger.error(f"Error generating PDF: {e}")
+                flash("Error generating PDF. Falling back to CSV format.", "error")
+                output_format = 'csv'  # Fallback to CSV
+        
+        # Default: CSV format
+        return send_file(
+            output_file_path,
+            as_attachment=True,
+            download_name=f"firewall_request_{timestamp}.csv",
+            mimetype="text/csv"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error generating output file: {e}")
+        flash(f"Error generating output file: {str(e)}", "error")
+        return redirect(url_for("process"))
+
+@app.route("/download_template")
+def download_template():
+    """Provide a template CSV file for download."""
+    try:
+        template_file = io.StringIO(TEMPLATE_CSV_CONTENT)
+        return send_file(
+            io.BytesIO(template_file.getvalue().encode()),
+            as_attachment=True,
+            download_name="firewall_request_template.csv",
+            mimetype="text/csv"
+        )
+    except Exception as e:
+        logger.error(f"Error providing template: {e}")
+        flash(f"Error downloading template: {str(e)}", "error")
+        return redirect(url_for("upload_csv"))
+
+if __name__ == "__main__":
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=os.environ.get('DEBUG', 'False').lower() == 'true')
