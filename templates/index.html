@@ -1,321 +1,424 @@
-<!doctype html>
-<html lang="en">
+"""
+Flask application for processing CSV files and generating firewall port requests.
+"""
+import io
+import csv
+import os
+import uuid
+import time
+import json
+import logging
+from datetime import datetime
+from flask import Flask, request, redirect, url_for, flash, send_file, session, render_template, jsonify, make_response
+from werkzeug.utils import secure_filename
+import pandas as pd
+import pdfkit  # For PDF generation (requires wkhtmltopdf installed)
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Firewall Request Generator</title>
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-image: url('{{ url_for('static', filename='background.png') }}');
-            background-size: cover;
-            background-repeat: no-repeat;
-            background-position: center center;
-            background-attachment: fixed;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
-        }
+app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', '123456789')  # Better to set via environment variable
 
-        .container {
-            background-color: rgba(255, 255, 255, 0.9);
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-            max-width: 700px;
-            width: 100%;
-        }
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("app.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
-        .form-header {
-            text-align: center;
-            margin-bottom: 25px;
-        }
+# Directory to store uploaded files temporarily
+UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', '/tmp/')
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Limit upload size to 16MB
 
-        .form-header h1 {
-            font-size: 28px;
-            color: #333;
-            margin-bottom: 10px;
-        }
+# Create the upload folder if it doesn't exist
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-        .form-header p {
-            color: #666;
-            margin-top: 0;
-        }
+# Template CSV contents for download
+TEMPLATE_CSV_CONTENT = """FQDN,IP Address,Exporter_name_os,Exporter_name_app,Exporter_name_app_2,Exporter_name_app_3
+server1.example.com,192.168.1.10,exporter_linux,exporter_jmx,,
+server2.example.com,192.168.1.11,exporter_windows,exporter_mpp,,
+db1.example.com,192.168.1.20,exporter_linux,exporter_redis,,
+"""
 
-        .form-section {
-            margin-bottom: 25px;
-        }
+# Function to delete old temporary files
+def cleanup_old_files(directory, max_age_in_seconds=3600):
+    """Delete files older than max_age_in_seconds from the directory."""
+    current_time = time.time()
+    for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
+        if os.path.isfile(file_path):
+            file_age = current_time - os.path.getmtime(file_path)
+            if file_age > max_age_in_seconds:
+                try:
+                    os.remove(file_path)
+                    logger.info(f"Deleted old file: {file_path}")
+                except Exception as e:
+                    logger.error(f"Error deleting {file_path}: {e}")
 
-        .form-section h2 {
-            font-size: 20px;
-            color: #444;
-            margin-bottom: 15px;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 8px;
-        }
+# Before each request, cleanup old files
+@app.before_request
+def cleanup_files():
+    cleanup_old_files(app.config['UPLOAD_FOLDER'])
 
-        .form-group {
-            margin-bottom: 15px;
-        }
+# Your existing function create_port_csv with added logging and error handling
+def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_hostnames=None):
+    """Generate a CSV file with port mappings for the selected hostnames."""
+    port_mappings = {
+        "exporter_cms": {
+            "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "443"), ("SSL", "443")],
+            "dst": [],
+        },
+        "exporter_aes": {
+            "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "443"), ("SSL", "8443")],
+            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
+        },
+        "exporter_aessnmp": {
+            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_gateway": {
+            "src": [("UDP", "161"), ("TCP", "22"), ("ICMP", "ping")],
+            "dst": [("UDP", "162")],
+        },
+        "exporter_ams": {
+            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "8443"), ("ICMP", "ping"), ("SSL", "8443")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_sm": {
+            "src": [("TCP", "22"), ("ICMP", "ping")],
+            "dst": [("UDP", "162")],
+        },
+        "exporter_avayasbc": {
+            "src": [("TCP", "22"), ("TCP", "222"), ("UDP", "161"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_aaep": {
+            "src": [("TCP", "22"), ("TCP", "5432"), ("UDP", "161"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_mpp": {
+            "src": [("TCP", "22"), ("ICMP", "ping")],
+            "dst": [],
+        },
+        "exporter_windows": {
+            "src": [("TCP", "9182"), ("ICMP", "ping")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_linux": {
+            "src": [("TCP", "22"), ("ICMP", "ping")],
+            "dst": [],
+        },
+        "exporter_ipo": {
+            "src": [("TCP", "22"), ("TCP", "443"), ("UDP", "161")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_iq": {
+            "src": [("TCP", "22"), ("TCP", "443"), ("ICMP", "ping")],
+            "dst": [],
+        },
+        "exporter_weblm": {
+            "src": [("TCP", "22"), ("TCP", "443"), ("TCP", "52233"), ("ICMP", "ping"), ("SSL", "443"), ("SSL", "52233")],
+            "dst": [],
+        },
+        "exporter_aacc": {
+            "src": [("TCP", "9182"), ("TCP", "8443"), ("ICMP", "ping"), ("SSL", "443")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_wfodb": {
+            "src": [("TCP", "1433"), ("TCP", "9182"), ("ICMP", "ping")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_verint": {
+            "src": [("TCP", "9182"), ("ICMP", "ping"), ("TCP", "8443"), ("ICMP", "ping"), ("SSL", "8443")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_network": {
+            "src": [("UDP", "161"), ("ICMP", "ping")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_tcti": {
+            "src": [("TCP", "8080"), ("ICMP", "ping")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_callback": {
+            "src": [("TCP", "1433"), ("ICMP", "ping")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_nuancelm": {
+            "src": [("TCP", "9182"), ("TCP", "27000"), ("ICMP", "ping")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_jmx": {
+            "src": [("TCP", "7080"), ("ICMP", "ping")],
+            "dst": [],
+        },
+        "exporter_breeze": {
+            "src": [("TCP", "22"), ("ICMP", "ping"), ("SSL", "443")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_acm": {
+            "src": [("TCP", "22"), ("TCP", "5022"), ("TCP", "443"), ("UDP", "161"), ("ICMP", "ping"), ("SSL", "443")],
+            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
+        },
+        "exporter_vmware": {
+            "src": [("TCP", "22"), ("ICMP", "PING"), ("TCP", "443")],
+            "dst": [],
+        },
+        "exporter_kafka": {
+            "src": [("TCP", "9092")],
+            "dst": [],
+        },
+        "exporter_drac": {
+            "src": [("TCP", "22"), ("ICMP", "PING"), ("UDP", "161")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_pfsense": {
+            "src": [("TCP", "22"), ("ICMP", "PING"), ("UDP", "161")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_aic": {
+            "src": [("TCP", "9183"), ("ICMP", "ping"), ("SSL", "443")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_voiceportal": {
+            "src": [("TCP", "5432"), ("ICMP", "ping"), ("TCP", "443"), ("TCP", "22")],
+            "dst": [],
+        },
+        "exporter_aam": {
+            "src": [("ICMP", "ping"), ("TCP", "8443"), ("TCP", "22"), ("UDP", "161"), ("SSL", "8443")],
+            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
+        },
+        "exporter_pc5": {
+            "src": [("ICMP", "ping"), ("TCP", "22")],
+            "dst": [],
+        },
+        "exporter_audiocodes": {
+            "src": [("ICMP", "ping"), ("TCP", "22"), ("UDP", "161"), ("SSL", "443")],
+            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162"), ("SSL", "443")],
+        },
+        "exporter_redis": {
+            "src": [("TCP", "6379")],
+            "dst": [],
+        },
+    }
 
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #333;
-        }
+    unique_entries = set()
+    processed_count = 0
+    skipped_count = 0
 
-        input[type="text"],
-        input[type="file"],
-        select {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
+    try:
+        reader = csv.DictReader(input_file)
+        writer = csv.writer(output_file)
+        writer.writerow([
+            "Source_FQDN", "Source_IP_Address", "Destination_FQDN", 
+            "Destination_IP_Address", "Proto", "Port", "Description"
+        ])
 
-        input[type="text"]:focus,
-        input[type="file"]:focus,
-        select:focus {
-            border-color: #555;
-            outline: none;
-        }
+        for row in reader:
+            target_fqdn = row.get("FQDN", "")
+            if not target_fqdn:
+                logger.warning(f"Skipping row with missing FQDN: {row}")
+                skipped_count += 1
+                continue
 
-        .custom-file-input {
-            position: relative;
-        }
+            if selected_hostnames is not None and target_fqdn not in selected_hostnames:
+                continue
 
-        .custom-file-input input[type="file"] {
-            padding-top: 10px;
-            padding-bottom: 10px;
-            cursor: pointer;
-        }
+            ip = row.get("IP Address", "")
+            if not ip:
+                logger.warning(f"Skipping row with missing IP Address for {target_fqdn}")
+                skipped_count += 1
+                continue
 
-        .btn {
-            display: inline-block;
-            padding: 12px 24px;
-            background-color: #2c3e50;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 18px;
-            cursor: pointer;
-            transition: background-color 0.3s, transform 0.2s;
-            text-align: center;
-            text-decoration: none;
-        }
+            # Collect all exporter names, filtering out None or empty values
+            exporters = [
+                row.get("Exporter_name_os", ""), 
+                row.get("Exporter_name_app", ""), 
+                row.get("Exporter_name_app_2", ""), 
+                row.get("Exporter_name_app_3", "")
+            ]
+            exporters = [exporter for exporter in exporters if exporter]
 
-        .btn:hover {
-            background-color: #34495e;
-            transform: translateY(-2px);
-        }
+            if not exporters:
+                logger.warning(f"No exporters found for {target_fqdn}")
+                skipped_count += 1
+                continue
 
-        .btn-submit {
-            background-color: #2980b9;
-            width: 100%;
-            margin-top: 15px;
-        }
+            for exporter in exporters:
+                if exporter in port_mappings:
+                    for protocol, port in port_mappings[exporter]["src"]:
+                        description = f"Monitoring from {maas_ng_fqdn} to {target_fqdn} ({exporter})"
+                        entry = (maas_ng_fqdn, maas_ng_ip, target_fqdn, ip, protocol, port, description)
+                        if entry not in unique_entries:
+                            writer.writerow(entry)
+                            unique_entries.add(entry)
+                            processed_count += 1
 
-        .btn-submit:hover {
-            background-color: #3498db;
-        }
+                    for protocol, port in port_mappings[exporter]["dst"]:
+                        description = f"Return traffic from {target_fqdn} to {maas_ng_fqdn} ({exporter})"
+                        entry = (target_fqdn, ip, maas_ng_fqdn, maas_ng_ip, protocol, port, description)
+                        if entry not in unique_entries:
+                            writer.writerow(entry)
+                            unique_entries.add(entry)
+                            processed_count += 1
+                else:
+                    logger.warning(f"Unknown exporter type: {exporter} for {target_fqdn}")
 
-        .btn-secondary {
-            background-color: #7f8c8d;
-            margin-top: 15px;
-            font-size: 16px;
-        }
+        logger.info(f"Processed {processed_count} port mappings, skipped {skipped_count} items")
+        return processed_count, skipped_count
+    except Exception as e:
+        logger.error(f"Error processing CSV: {e}")
+        raise
 
-        .btn-secondary:hover {
-            background-color: #95a5a6;
-        }
+# Route for the home page (upload form)
+@app.route("/", methods=["GET", "POST"])
+def upload_csv():
+    """Handle file uploads and redirect to the processing page."""
+    if request.method == "POST":
+        try:
+            if "file" not in request.files:
+                flash("No file selected", "error")
+                return redirect(request.url)
 
-        .tooltip {
-            position: relative;
-            display: inline-block;
-            cursor: help;
-        }
+            maas_ng_fqdn = request.form.get("maas_ng_fqdn")
+            if not maas_ng_fqdn:
+                flash("MaaS-NG FQDN is required", "error")
+                return redirect(request.url)
 
-        .tooltip .tooltiptext {
-            visibility: hidden;
-            width: 250px;
-            background-color: #333;
-            color: #fff;
-            text-align: center;
-            border-radius: 6px;
-            padding: 12px;
-            position: absolute;
-            z-index: 1;
-            bottom: 125%;
-            left: 50%;
-            margin-left: -125px;
-            opacity: 0;
-            transition: opacity 0.3s, transform 0.3s;
-            transform: translateY(10px);
-            font-size: 14px;
-            line-height: 1.5;
-        }
+            maas_ng_ip = request.form.get("maas_ng_ip")
+            if not maas_ng_ip:
+                flash("MaaS-NG IP address is required", "error")
+                return redirect(request.url)
 
-        .tooltip:hover .tooltiptext {
-            visibility: visible;
-            opacity: 1;
-            transform: translateY(0);
-        }
+            file = request.files["file"]
+            if file.filename == "":
+                flash("No file selected", "error")
+                return redirect(request.url)
 
-        .info-icon {
-            display: inline-block;
-            width: 18px;
-            height: 18px;
-            background-color: #2980b9;
-            color: white;
-            border-radius: 50%;
-            text-align: center;
-            line-height: 18px;
-            font-size: 12px;
-            margin-left: 5px;
-        }
+            if file and file.filename.endswith('.csv'):
+                # Generate a unique filename and save the file
+                filename = secure_filename(str(uuid.uuid4()) + '.csv')
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(file_path)
+                logger.info(f"Saved uploaded file to {file_path}")
 
-        .template-section {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px dashed #ccc;
-        }
+                # Save details to session
+                session['file_path'] = file_path
+                session['maas_ng_fqdn'] = maas_ng_fqdn
+                session['maas_ng_ip'] = maas_ng_ip
+                session['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        .template-link {
-            color: #2980b9;
-            text-decoration: none;
-        }
+                return redirect(url_for("process"))
+            else:
+                flash("Please upload a CSV file", "error")
+                return redirect(request.url)
+        except Exception as e:
+            logger.error(f"Error in upload_csv: {e}")
+            flash("An error occurred while uploading the file.", "error")
+            return redirect(request.url)
+    return render_template("index.html")
 
-        .template-link:hover {
-            text-decoration: underline;
-        }
+# Route to display the process page where hostnames can be selected
+@app.route("/process", methods=["GET"])
+def process():
+    # Retrieve session variables
+    file_path = session.get("file_path")
+    maas_ng_fqdn = session.get("maas_ng_fqdn")
+    maas_ng_ip = session.get("maas_ng_ip")
+    
+    if not file_path or not os.path.exists(file_path):
+        flash("Uploaded file not found or has expired. Please upload again.", "error")
+        return redirect(url_for("upload_csv"))
+    
+    # Read CSV and build hostnames info list
+    hostnames_info = []
+    try:
+        with open(file_path, newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                fqdn = row.get("FQDN", "")
+                ip = row.get("IP Address", "")
+                if fqdn and ip:
+                    hostnames_info.append({"fqdn": fqdn, "ip": ip})
+    except Exception as e:
+        logger.error(f"Error reading CSV file: {e}")
+        flash("Error processing the CSV file.", "error")
+        return redirect(url_for("upload_csv"))
+    
+    return render_template("process.html", hostnames=hostnames_info, hostnames_info=hostnames_info,
+                           maas_ng_fqdn=maas_ng_fqdn, maas_ng_ip=maas_ng_ip)
 
-        .error-msg {
-            color: #e74c3c;
-            font-size: 14px;
-            margin-top: 5px;
-            display: none;
-        }
+# Route to generate the output file in the selected format
+@app.route("/generate_output_csv", methods=["POST"])
+def generate_output_csv():
+    try:
+        file_path = session.get("file_path")
+        if not file_path or not os.path.exists(file_path):
+            flash("Uploaded file not found or has expired. Please upload again.", "error")
+            return redirect(url_for("upload_csv"))
+        
+        maas_ng_fqdn = request.form.get("maas_ng_fqdn")
+        maas_ng_ip = request.form.get("maas_ng_ip")
+        selected_hostnames = request.form.getlist("selected_hostnames")
+        
+        if not selected_hostnames:
+            flash("No hostnames selected.", "error")
+            return redirect(url_for("process"))
+        
+        output = io.StringIO()
+        with open(file_path, newline='') as input_file:
+            processed_count, skipped_count = create_port_csv(input_file, output, maas_ng_ip, maas_ng_fqdn, selected_hostnames)
+        
+        logger.info(f"Output generated: processed {processed_count} mappings, skipped {skipped_count} items")
+        output.seek(0)
+        
+        output_format = request.form.get("output_format", "csv")
+        output_filename = f"firewall_request_{uuid.uuid4()}.{output_format}"
+        
+        if output_format == "csv":
+            response = make_response(output.getvalue())
+            response.headers["Content-Disposition"] = f"attachment; filename={output_filename}"
+            response.headers["Content-Type"] = "text/csv"
+            return response
+        elif output_format == "excel":
+            output.seek(0)
+            df = pd.read_csv(io.StringIO(output.getvalue()))
+            excel_io = io.BytesIO()
+            with pd.ExcelWriter(excel_io, engine="xlsxwriter") as writer:
+                df.to_excel(writer, index=False)
+            excel_io.seek(0)
+            response = make_response(excel_io.read())
+            response.headers["Content-Disposition"] = f"attachment; filename={output_filename}"
+            response.headers["Content-Type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            return response
+        elif output_format == "pdf":
+            output.seek(0)
+            df = pd.read_csv(io.StringIO(output.getvalue()))
+            # Render a simple HTML template for PDF conversion.
+            html = render_template("pdf_template.html", tables=[df.to_html(classes="data", index=False)], titles=df.columns.values)
+            pdf = pdfkit.from_string(html, False)
+            response = make_response(pdf)
+            response.headers["Content-Disposition"] = f"attachment; filename={output_filename}"
+            response.headers["Content-Type"] = "application/pdf"
+            return response
+        else:
+            flash("Invalid output format selected.", "error")
+            return redirect(url_for("process"))
+    except Exception as e:
+        logger.error(f"Error generating output: {e}")
+        flash("An error occurred while generating the firewall request.", "error")
+        return redirect(url_for("process"))
 
-        @media (max-width: 768px) {
-            .container {
-                padding: 20px;
-            }
-        }
-    </style>
-</head>
+# Route to download the CSV template
+@app.route("/download_template")
+def download_template():
+    response = make_response(TEMPLATE_CSV_CONTENT)
+    response.headers["Content-Disposition"] = "attachment; filename=template.csv"
+    response.headers["Content-Type"] = "text/csv"
+    return response
 
-<body>
-    <div class="container">
-        <div class="form-header">
-            <h1>Firewall Request Generator</h1>
-            <p>Generate port mapping requests for your monitoring infrastructure</p>
-        </div>
-
-        <form method="post" enctype="multipart/form-data" id="uploadForm" onsubmit="return validateForm()">
-            <div class="form-section">
-                <h2>Monitoring Server Details</h2>
-                <div class="form-group">
-                    <label for="maas_ng_fqdn">
-                        Monitoring Server FQDN
-                        <span class="tooltip">
-                            <span class="info-icon">i</span>
-                            <span class="tooltiptext">The Fully Qualified Domain Name of your monitoring server (e.g., maas.example.com)</span>
-                        </span>
-                    </label>
-                    <input type="text" name="maas_ng_fqdn" id="maas_ng_fqdn" placeholder="e.g., maas.example.com" required>
-                    <div class="error-msg" id="fqdn_error">Please enter a valid FQDN</div>
-                </div>
-
-                <div class="form-group">
-                    <label for="maas_ng_ip">
-                        Monitoring Server IP Address
-                        <span class="tooltip">
-                            <span class="info-icon">i</span>
-                            <span class="tooltiptext">The IP address of your monitoring server (e.g., 192.168.1.1)</span>
-                        </span>
-                    </label>
-                    <input type="text" name="maas_ng_ip" id="maas_ng_ip" placeholder="e.g., 192.168.1.1" required>
-                    <div class="error-msg" id="ip_error">Please enter a valid IP address</div>
-                </div>
-            </div>
-
-            <div class="form-section">
-                <h2>Device Information</h2>
-                <div class="form-group">
-                    <label for="file">
-                        Upload CSV File
-                        <span class="tooltip">
-                            <span class="info-icon">i</span>
-                            <span class="tooltiptext">Upload a CSV file with the required columns: FQDN, IP Address, Exporter_name_os, Exporter_name_app, Exporter_name_app_2, Exporter_name_app_3</span>
-                        </span>
-                    </label>
-                    <div class="custom-file-input">
-                        <input type="file" name="file" id="file" accept=".csv" required>
-                    </div>
-                    <div class="error-msg" id="file_error">Please select a CSV file</div>
-                </div>
-            </div>
-
-            <button type="submit" class="btn btn-submit">Continue</button>
-
-            <div class="template-section">
-                <p>Need a template? <a href="{{ url_for('download_template') }}" class="template-link">Download CSV Template</a></p>
-                <a href="https://github.com/Brownster/portmapper.py" target="_blank" class="btn btn-secondary">View on GitHub</a>
-            </div>
-        </form>
-    </div>
-
-    <script>
-        function validateForm() {
-            let valid = true;
-            
-            // Validate FQDN
-            const fqdn = document.getElementById('maas_ng_fqdn').value;
-            const fqdnError = document.getElementById('fqdn_error');
-            const fqdnPattern = /^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
-            
-            if (!fqdnPattern.test(fqdn)) {
-                fqdnError.style.display = 'block';
-                valid = false;
-            } else {
-                fqdnError.style.display = 'none';
-            }
-            
-            // Validate IP address
-            const ip = document.getElementById('maas_ng_ip').value;
-            const ipError = document.getElementById('ip_error');
-            const ipPattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-            
-            if (!ipPattern.test(ip)) {
-                ipError.style.display = 'block';
-                valid = false;
-            } else {
-                ipError.style.display = 'none';
-            }
-            
-            // Validate file
-            const file = document.getElementById('file').value;
-            const fileError = document.getElementById('file_error');
-            
-            if (!file) {
-                fileError.style.display = 'block';
-                valid = false;
-            } else {
-                fileError.style.display = 'none';
-            }
-            
-            return valid;
-        }
-    </script>
-</body>
-
-</html>
+if __name__ == "__main__":
+    app.run(debug=True)
