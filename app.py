@@ -138,7 +138,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
         },
         "exporter_vmware": {
-            "src": [("TCP", "22"), ("ICMP", "PING"), ("TCP", "8443")],
+            "src": [("TCP", "22"), ("ICMP", "PING"), ("TCP", "443")],
             "dst": [],
         },
         "exporter_kafka": {
