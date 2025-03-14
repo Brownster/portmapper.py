@@ -43,7 +43,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
         },
         "exporter_aessnmp": {
             "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "443"),
-                    ("ICMP", "ping"), ("SSL", "8443")],
+                    ("ICMP", "ping"), ("SSL", "443")],
             "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
         },
         "exporter_gateway": {
