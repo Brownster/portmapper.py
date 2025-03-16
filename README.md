@@ -14,6 +14,8 @@ This Flask application automates the generation of firewall requests from upload
 
 ![image](https://github.com/user-attachments/assets/46223b80-dd74-4cf9-9ae4-291d55b1dd62)
 
+![image](https://github.com/user-attachments/assets/4b98f4fd-7c38-4403-bcca-4d9b4be28ffa)
+
 
 Here is a breakdown of the required CSV file fields mentioned in your script:
 
