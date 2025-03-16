@@ -17,6 +17,8 @@ Here is a breakdown of the required CSV file fields mentioned in your script:
     Exporter_name_os: This field appears to indicate the operating system or platform specific exporter configurations, which determine what ports and protocols are allowed for source communications.
     Exporter_name_app: Application-specific exporter configurations, detailing the ports and protocols used for destination communications.
 
+![image](https://github.com/user-attachments/assets/1de8dde4-685f-4ec2-9e33-ead61b167e8e)
+
 These fields are utilized in the script to determine the rule mappings and to generate the necessary firewall configurations. When you create a CSV file for upload, each record should at least include these columns to ensure the script can process it correctly.
 Example CSV Structure
 
