@@ -10,6 +10,11 @@ This Flask application automates the generation of firewall requests from upload
 - **Secure File Handling**: Temporarily stores uploaded files in a secure manner and cleans up old files regularly.
 - **User Feedback**: Provides user feedback via flash messages for file upload success or failure.
 
+![image](https://github.com/user-attachments/assets/da18ab5d-61aa-47ce-ae8e-1635b3f2f884)
+
+![image](https://github.com/user-attachments/assets/46223b80-dd74-4cf9-9ae4-291d55b1dd62)
+
+
 Here is a breakdown of the required CSV file fields mentioned in your script:
 
     FQDN: Fully Qualified Domain Name of the target server. This field is crucial as it is used to match the target server in the firewall rule entries.
