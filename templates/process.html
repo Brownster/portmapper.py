@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="en">
-
 <head>
     <meta charset="utf-8">
-    <title>Process Hostnames</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Process Hostnames | Firewall Request Generator</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -15,94 +15,364 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-        }
-
-        form {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background-color: rgba(255, 255, 255, 0.8);
+            min-height: 100vh;
+            margin: 0;
             padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            max-width: 500px;
+            box-sizing: border-box;
+        }
+        
+        .container {
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            max-width: 800px;
             width: 100%;
-            overflow: auto; /* Adds scrollbar if content overflows */
         }
-
-        input[type="submit"] {
-            padding: 10px 20px;
-            background-color: #333;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 18px;
-            cursor: pointer;
-            transition: background-color 0.3s;
+        
+        .form-header {
+            text-align: center;
+            margin-bottom: 25px;
         }
-
-        input[type="submit"]:hover {
-            background-color: #555;
-        }
-
-        h1 {
-            margin-bottom: 20px;
-            font-size: 24px;
-        }
-
-        label {
+        
+        .form-header h1 {
+            font-size: 28px;
+            color: #333;
             margin-bottom: 10px;
         }
-
-        ul {
-            width: 100%;
-            max-height: 300px;
-            overflow-y: auto;
-            padding: 0;
-            margin: 0 0 20px 0;
+        
+        .form-header p {
+            color: #666;
+            margin-top: 0;
         }
-
-        li {
-            list-style: none;
-            padding: 5px 0;
+        
+        .search-box {
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 12px 40px 12px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        
+        .search-box::after {
+            content: '🔍';
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+        }
+        
+        .hostname-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .hostname-item {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+        }
+        
+        .hostname-item:last-child {
+            border-bottom: none;
+        }
+        
+        .hostname-item label {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            cursor: pointer;
+        }
+        
+        .hostname-item input[type="checkbox"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+        }
+        
+        .hostname-details {
+            display: flex;
+            flex-wrap: wrap;
+            font-size: 14px;
+        }
+        
+        .hostname-fqdn {
+            flex: 1;
+            min-width: 60%;
+            font-weight: 500;
+        }
+        
+        .hostname-ip {
+            flex: 0 0 auto;
+            color: #666;
+            margin-left: 10px;
+        }
+        
+        .checkbox-controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            text-align: center;
+            text-decoration: none;
+        }
+        
+        .btn:hover {
+            background-color: #34495e;
+            transform: translateY(-2px);
+        }
+        
+        .btn-check {
+            background-color: #7f8c8d;
+            font-size: 14px;
+            padding: 8px 16px;
+        }
+        
+        .btn-check:hover {
+            background-color: #95a5a6;
+        }
+        
+        .btn-primary {
+            background-color: #2980b9;
+            padding: 12px 24px;
+            font-size: 18px;
+            width: 100%;
+            margin-top: 15px;
+        }
+        
+        .btn-primary:hover {
+            background-color: #3498db;
+        }
+        
+        .stats-bar {
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+        
+        .output-options {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+        
+        .output-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #444;
+        }
+        
+        .output-format {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .format-option {
+            display: flex;
+            align-items: center;
+        }
+        
+        .format-option input {
+            margin-right: 8px;
+        }
+        
+        .selected-count {
+            font-weight: bold;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .checkbox-controls {
+                flex-direction: column;
+            }
+            
+            .btn-check {
+                width: 100%;
+            }
         }
     </style>
 </head>
-
 <body>
-    <form method="post" action="{{ url_for('generate_output_csv') }}" onsubmit="return validateForm()">
-        <h1>Process Hostnames</h1>
-        <input type="hidden" name="maas_ng_ip" value="{{ maas_ng_ip }}">
-        <input type="hidden" name="maas_ng_fqdn" value="{{ maas_ng_fqdn }}">
-        <label><input type="checkbox" id="check_all" onclick="toggleCheckboxes()"> Check All</label>
-        <ul>
-            {% for hostname in hostnames %}
-                <li><label><input type="checkbox" name="selected_hostnames" value="{{ hostname }}"> {{ hostname }}</label></li>
-            {% endfor %}
-        </ul>
-        <input type="submit" value="Generate Output">
-    </form>
-    <script>
-        function toggleCheckboxes() {
-            var checkboxes = document.getElementsByName("selected_hostnames");
-            var check_all = document.getElementById("check_all");
-            for (var i = 0; i < checkboxes.length; i++) {
-                checkboxes[i].checked = check_all.checked;
-            }
-        }
+    <div class="container">
+        <div class="form-header">
+            <h1>Select Hostnames</h1>
+            <p>Choose the devices to include in your firewall request</p>
+        </div>
+        
+        <form method="post" action="{{ url_for('generate_output_csv') }}" onsubmit="return validateSelection()">
+            <input type="hidden" name="maas_ng_ip" value="{{ maas_ng_ip }}">
+            <input type="hidden" name="maas_ng_fqdn" value="{{ maas_ng_fqdn }}">
+            
+            <div class="search-box">
+                <input type="text" id="hostnameSearch" placeholder="Search hostnames..." oninput="filterHostnames()">
+            </div>
+            
+            <div class="stats-bar">
+                <span>Total devices: <strong>{{ hostnames|length }}</strong></span>
+                <span>Selected: <span class="selected-count" id="selectedCount">0</span></span>
+            </div>
+            
+            <div class="checkbox-controls">
+                <button type="button" class="btn btn-check" id="checkAll">Select All</button>
+                <button type="button" class="btn btn-check" id="uncheckAll">Deselect All</button>
+                <button type="button" class="btn btn-check" onclick="toggleHostnamesWithIP()">Toggle by IP Pattern</button>
+            </div>
+            
+            <div class="hostname-list" id="hostnameList">
+                {% for hostname in hostnames_info %}
+                <div class="hostname-item">
+                    <label>
+                        <input type="checkbox" name="selected_hostnames" value="{{ hostname.fqdn }}" data-ip="{{ hostname.ip }}" onchange="updateSelectedCount()">
+                        <div class="hostname-details">
+                            <span class="hostname-fqdn">{{ hostname.fqdn }}</span>
+                            <span class="hostname-ip">{{ hostname.ip }}</span>
+                        </div>
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="output-options">
+                <h3 class="output-title">Output Format</h3>
+                <div class="output-format">
+                    <label class="format-option">
+                        <input type="radio" name="output_format" value="csv" checked>
+                        CSV
+                    </label>
+                    <label class="format-option">
+                        <input type="radio" name="output_format" value="excel">
+                        Excel
+                    </label>
+                    <label class="format-option">
+                        <input type="radio" name="output_format" value="pdf">
+                        PDF
+                    </label>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Generate Firewall Request</button>
+        </form>
+    </div>
 
-        function validateForm() {
-            var checkboxes = document.getElementsByName("selected_hostnames");
+    <script>
+        // Initialize
+        updateSelectedCount();
+        
+        // Function to toggle all checkboxes
+        document.getElementById('checkAll').addEventListener('click', function() {
+            var checkboxes = document.getElementsByName('selected_hostnames');
             for (var i = 0; i < checkboxes.length; i++) {
-                if (checkboxes[i].checked) {
-                    return true;
+                if (!checkboxes[i].parentElement.parentElement.style.display || 
+                    checkboxes[i].parentElement.parentElement.style.display !== 'none') {
+                    checkboxes[i].checked = true;
                 }
             }
-            alert("Please select at least one hostname.");
-            return false;
+            updateSelectedCount();
+        });
+        
+        document.getElementById('uncheckAll').addEventListener('click', function() {
+            var checkboxes = document.getElementsByName('selected_hostnames');
+            for (var i = 0; i < checkboxes.length; i++) {
+                checkboxes[i].checked = false;
+            }
+            updateSelectedCount();
+        });
+        
+        // Function to filter hostnames based on search input
+        function filterHostnames() {
+            var input = document.getElementById('hostnameSearch');
+            var filter = input.value.toLowerCase();
+            var items = document.getElementsByClassName('hostname-item');
+            
+            for (var i = 0; i < items.length; i++) {
+                var hostname = items[i].querySelector('.hostname-fqdn').textContent.toLowerCase();
+                var ip = items[i].querySelector('.hostname-ip').textContent.toLowerCase();
+                
+                if (hostname.indexOf(filter) > -1 || ip.indexOf(filter) > -1) {
+                    items[i].style.display = "";
+                } else {
+                    items[i].style.display = "none";
+                }
+            }
+        }
+        
+        // Function to toggle hostnames based on IP pattern
+        function toggleHostnamesWithIP() {
+            var pattern = prompt("Enter the IP pattern to select (e.g., 192.168):");
+            if (pattern) {
+                var checkboxes = document.getElementsByName('selected_hostnames');
+                for (var i = 0; i < checkboxes.length; i++) {
+                    var ip = checkboxes[i].getAttribute('data-ip');
+                    if (ip.includes(pattern)) {
+                        checkboxes[i].checked = !checkboxes[i].checked;
+                    }
+                }
+                updateSelectedCount();
+            }
+        }
+        
+        // Function to update selected count
+        function updateSelectedCount() {
+            var checkboxes = document.getElementsByName('selected_hostnames');
+            var count = 0;
+            for (var i = 0; i < checkboxes.length; i++) {
+                if (checkboxes[i].checked) {
+                    count++;
+                }
+            }
+            document.getElementById('selectedCount').textContent = count;
+        }
+        
+        // Function to validate form before submission
+        function validateSelection() {
+            var checkboxes = document.getElementsByName('selected_hostnames');
+            var selected = false;
+            
+            for (var i = 0; i < checkboxes.length; i++) {
+                if (checkboxes[i].checked) {
+                    selected = true;
+                    break;
+                }
+            }
+            
+            if (!selected) {
+                alert("Please select at least one hostname.");
+                return false;
+            }
+            
+            return true;
         }
     </script>
 </body>
-
 </html>
