@@ -13,6 +13,7 @@ from flask import Flask, request, redirect, url_for, flash, send_file, session, 
 from werkzeug.utils import secure_filename
 import pandas as pd
 import pdfkit  # For PDF generation (requires wkhtmltopdf installed)
+import shutil  # For checking executable paths
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', '123456789')  # Better to set via environment variable
@@ -230,8 +231,19 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
         # Get the header row and create a CSV reader for the data
         headers = all_rows[header_row]
         
-        # Set up a DictReader to work with the data
-        reader = [dict(zip(headers, row)) for row in data_rows if row]  # Skip empty rows
+        # Find the index of FQDN and IP Address columns
+        fqdn_index = None
+        ip_index = None
+        
+        for i, header in enumerate(headers):
+            if 'FQDN' in str(header).upper():
+                fqdn_index = i
+            if 'IP' in str(header).upper() and 'ADDRESS' in str(header).upper():
+                ip_index = i
+        
+        if fqdn_index is None or ip_index is None:
+            logger.error("Could not find required columns (FQDN and IP Address)")
+            raise ValueError("Could not find required columns. Please check your CSV format.")
         
         # Set up the output CSV
         writer = csv.writer(output_file)
@@ -239,54 +251,37 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "Source_FQDN", "Source_IP_Address", "Destination_FQDN", 
             "Destination_IP_Address", "Proto", "Port", "Description"
         ])
-
-        for row in reader:
-            # Extract FQDN, handling potential case differences in headers
-            target_fqdn = None
-            for key in row:
-                if key and 'FQDN' in str(key).upper():
-                    target_fqdn = row[key]
-                    break
-                    
+        
+        # Process the data rows
+        for row in data_rows:
+            if len(row) <= max(fqdn_index, ip_index):
+                # Skip rows that don't have enough columns
+                continue
+                
+            # Get FQDN and IP
+            target_fqdn = row[fqdn_index].strip()
+            ip = row[ip_index].strip()
+            
             if not target_fqdn:
-                logger.warning(f"Skipping row with missing FQDN: {row}")
+                logger.warning(f"Skipping row with missing FQDN")
                 skipped_count += 1
                 continue
 
             if selected_hostnames is not None and target_fqdn not in selected_hostnames:
                 continue
 
-            # Extract IP address, handling potential case differences in headers
-            ip = None
-            for key in row:
-                if key and 'IP' in str(key).upper() and 'ADDRESS' in str(key).upper():
-                    ip = row[key]
-                    break
-                    
             if not ip:
                 logger.warning(f"Skipping row with missing IP Address for {target_fqdn}")
                 skipped_count += 1
                 continue
 
-            # Collect all exporter names, filtering out None or empty values
+            # Collect all exporter names by looking for columns with "Exporter" in the name
             exporters = []
-            
-            # Look for keys containing "Exporter" in any case
-            for key in row:
-                if key and 'EXPORTER' in str(key).upper():
-                    value = row[key]
-                    if value:  # If the value is not empty
-                        exporters.append(value)
-                        
-            # Fallback to specific keys if no exporters found with the generic approach
-            if not exporters:
-                potential_exporters = [
-                    row.get("Exporter_name_os", ""), 
-                    row.get("Exporter_name_app", ""), 
-                    row.get("Exporter_name_app_2", ""), 
-                    row.get("Exporter_name_app_3", "")
-                ]
-                exporters = [exp for exp in potential_exporters if exp]
+            for i, header in enumerate(headers):
+                if i >= len(row):
+                    continue
+                if 'EXPORTER' in str(header).upper() and row[i].strip():
+                    exporters.append(row[i].strip())
 
             if not exporters:
                 logger.warning(f"No exporters found for {target_fqdn}")
@@ -294,8 +289,19 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
                 continue
 
             for exporter in exporters:
-                if exporter in port_mappings:
-                    for protocol, port in port_mappings[exporter]["src"]:
+                # Convert to lowercase for case-insensitive comparison
+                exporter_lower = exporter.lower()
+                exporter_key = None
+                
+                # Find matching exporter in the port mappings
+                for key in port_mappings:
+                    if key.lower() == exporter_lower:
+                        exporter_key = key
+                        break
+                
+                if exporter_key:
+                    # Use the matched key to get port mappings
+                    for protocol, port in port_mappings[exporter_key]["src"]:
                         description = f"Monitoring from {maas_ng_fqdn} to {target_fqdn} ({exporter})"
                         entry = (maas_ng_fqdn, maas_ng_ip, target_fqdn, ip, protocol, port, description)
                         if entry not in unique_entries:
@@ -303,7 +309,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
                             unique_entries.add(entry)
                             processed_count += 1
 
-                    for protocol, port in port_mappings[exporter]["dst"]:
+                    for protocol, port in port_mappings[exporter_key]["dst"]:
                         description = f"Return traffic from {target_fqdn} to {maas_ng_fqdn} ({exporter})"
                         entry = (target_fqdn, ip, maas_ng_fqdn, maas_ng_ip, protocol, port, description)
                         if entry not in unique_entries:
@@ -468,6 +474,8 @@ def generate_output_csv():
         maas_ng_ip = request.form.get('maas_ng_ip')
         output_format = request.form.get('output_format', 'csv')
         
+        logger.info(f"Generate request: format={output_format}, hosts={len(selected_hostnames)}")
+        
         if not selected_hostnames:
             flash("Please select at least one hostname", "error")
             return redirect(url_for("process"))
@@ -485,35 +493,40 @@ def generate_output_csv():
         # Generate a unique filename for the output
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_basename = f"firewall_request_{timestamp}"
-        
-        # Create the output file
         output_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{output_basename}.csv")
         
         # Process the CSV file
+        logger.info(f"Processing CSV file: {input_file_path}")
         with open(input_file_path, 'r') as input_file, open(output_file_path, 'w', newline='') as output_file:
             processed_count, skipped_count = create_port_csv(
-                input_file, 
-                output_file, 
-                maas_ng_ip, 
-                maas_ng_fqdn, 
+                input_file,
+                output_file,
+                maas_ng_ip,
+                maas_ng_fqdn,
                 selected_hostnames
             )
         
-        # Convert to the requested format if needed
+        logger.info(f"CSV processing complete: processed={processed_count}, skipped={skipped_count}")
+        
+        # Handle different output formats
         if output_format == 'excel':
+            logger.info("Generating Excel file")
             excel_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{output_basename}.xlsx")
             df = pd.read_csv(output_file_path)
             df.to_excel(excel_file_path, index=False)
             
+            logger.info(f"Sending Excel file: {excel_file_path}")
             return send_file(
                 excel_file_path,
                 as_attachment=True,
-                download_name=f"firewall_request_{timestamp}.xlsx",
-                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                download_name=f"firewall_request_{timestamp}.xlsx"
             )
             
         elif output_format == 'pdf':
-            # Convert CSV to HTML table
+            logger.info("Generating PDF file")
+            pdf_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{output_basename}.pdf")
+            
+            # Convert CSV to HTML for PDF
             df = pd.read_csv(output_file_path)
             
             # Format protocol column with color-coded styling
@@ -529,82 +542,71 @@ def generate_output_csv():
                 elif "ssl" in protocol_lower:
                     css_class = "ssl"
                 return f'<span class="protocol {css_class}">{protocol}</span>'
-            
-            # Apply the styling to the Proto column if it exists
+                
             if 'Proto' in df.columns:
                 df['Proto'] = df['Proto'].apply(format_protocol)
                 
-            # Get summary statistics for the PDF
+            # Get summary statistics
             device_count = len(selected_hostnames)
             port_mapping_count = len(df)
             
-            # Generate the HTML table
+            # Generate HTML
             tables = [df.to_html(classes='data', index=False, escape=False)]
-            
-            # Generate PDF using the template
             now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
             rendered = render_template(
-                'pdf_template.html', 
-                tables=tables, 
+                'pdf_template.html',
+                tables=tables,
                 now=now,
                 maas_ng_fqdn=maas_ng_fqdn,
                 maas_ng_ip=maas_ng_ip,
                 device_count=device_count,
                 port_mapping_count=port_mapping_count
             )
-            pdf_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{output_basename}.pdf")
             
-            # Convert HTML to PDF
-            try:
-                # Check if wkhtmltopdf is installed
-                import shutil
+            # Try to find wkhtmltopdf
+            wrapper_path = '/usr/local/bin/wkhtmltopdf.sh'
+            if os.path.exists(wrapper_path) and os.access(wrapper_path, os.X_OK):
+                logger.info("Using Docker wkhtmltopdf wrapper script")
+                wkhtmltopdf_path = wrapper_path
+            else:
                 wkhtmltopdf_path = shutil.which('wkhtmltopdf')
-                
-                if not wkhtmltopdf_path:
-                    logger.error("wkhtmltopdf is not installed. Cannot generate PDF.")
-                    flash("PDF generation requires wkhtmltopdf to be installed. Falling back to CSV format.", "error")
-                    # Fall through to CSV format below
-                else:
-                    # Configure pdfkit with the path to wkhtmltopdf
+            
+            if not wkhtmltopdf_path:
+                logger.error("wkhtmltopdf not found, falling back to CSV")
+                flash("PDF generation requires wkhtmltopdf. Falling back to CSV format.", "error")
+            else:
+                # Generate PDF
+                try:
                     config = pdfkit.configuration(wkhtmltopdf=wkhtmltopdf_path)
-                    
-                    # PDF options for better rendering
                     options = {
                         'page-size': 'A4',
-                        'margin-top': '15mm',
-                        'margin-right': '15mm',
-                        'margin-bottom': '15mm',
-                        'margin-left': '15mm',
                         'encoding': 'UTF-8',
-                        'no-outline': None,
                         'enable-local-file-access': None
                     }
                     
-                    # Generate the PDF
                     pdfkit.from_string(rendered, pdf_file_path, options=options, configuration=config)
                     
-                    # Return the PDF file
+                    logger.info(f"Sending PDF file: {pdf_file_path}")
                     return send_file(
                         pdf_file_path,
                         as_attachment=True,
-                        download_name=f"firewall_request_{timestamp}.pdf",
-                        mimetype="application/pdf"
+                        download_name=f"firewall_request_{timestamp}.pdf"
                     )
-            except Exception as e:
-                logger.error(f"Error generating PDF: {e}")
-                flash(f"Error generating PDF: {str(e)}. Falling back to CSV format.", "error")
-                # Fall through to CSV format below
+                except Exception as e:
+                    logger.error(f"PDF generation failed: {e}")
+                    flash(f"PDF generation failed: {str(e)}. Falling back to CSV format.", "error")
         
-        # Default: CSV format
+        # Default to CSV format
+        logger.info(f"Sending CSV file: {output_file_path}")
         return send_file(
             output_file_path,
             as_attachment=True,
-            download_name=f"firewall_request_{timestamp}.csv",
-            mimetype="text/csv"
+            download_name=f"firewall_request_{timestamp}.csv"
         )
-        
+            
     except Exception as e:
-        logger.error(f"Error generating output file: {e}")
+        logger.error(f"Error in generate_output_csv: {e}")
         flash(f"Error generating output file: {str(e)}", "error")
         return redirect(url_for("process"))
 

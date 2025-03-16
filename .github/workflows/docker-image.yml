@@ -31,7 +31,7 @@ jobs:
         context: .
         file: ./Dockerfile
         push: true
-        tags: brownster/port-mapper:latest  # Ensure this is replaced with your actual Docker Hub repo
+        tags: brownster/port-mapper:latest  
 
     - name: Display the built image size
       run: echo "Image built and pushed successfully"

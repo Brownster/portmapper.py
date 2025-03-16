@@ -17,14 +17,32 @@ Here is a breakdown of the required CSV file fields mentioned in your script:
     Exporter_name_os: This field appears to indicate the operating system or platform specific exporter configurations, which determine what ports and protocols are allowed for source communications.
     Exporter_name_app: Application-specific exporter configurations, detailing the ports and protocols used for destination communications.
 
-![image](https://github.com/user-attachments/assets/1de8dde4-685f-4ec2-9e33-ead61b167e8e)
-
 These fields are utilized in the script to determine the rule mappings and to generate the necessary firewall configurations. When you create a CSV file for upload, each record should at least include these columns to ensure the script can process it correctly.
-Example CSV Structure
+## CSV File Format
 
-Your CSV files should have a structure similar to the following:
+Your CSV files should include the following columns:
 
+- `FQDN` - The Fully Qualified Domain Name of the target server
+- `IP Address` - The IP address of the target server
+- One or more exporter columns (e.g., `Exporter_name_os`, `Exporter_name_app`)
+
+Example CSV structure:
+
+```
 FQDN,IP Address,Exporter_name_os,Exporter_name_app
+```
+
+### Flexible CSV Handling
+
+The application is designed to be flexible with CSV formats:
+
+- Headers don't need to be on the first line (will scan the first 10 lines)
+- Column names are case-insensitive
+- Any column with "FQDN" in its name will be recognized as the FQDN column
+- Any column with "IP" and "Address" in its name will be recognized as the IP Address column
+- Any column with "Exporter" in its name will be recognized as an exporter column
+
+This means the tool can handle various Excel export formats where headers might start on line 5, 6, or 7, and column names might vary slightly.
 
 
 Tips for CSV File Preparation
@@ -73,8 +91,69 @@ Before you can run this application, you'll need the following installed:
 - Python 3.6 or higher
 - Flask
 - Werkzeug (usually installed with Flask)
+- Pandas (for data manipulation)
+- wkhtmltopdf (for PDF generation - optional but recommended)
+
+### Installing wkhtmltopdf
+
+To enable PDF generation, you need to install wkhtmltopdf:
+
+#### Ubuntu/Debian:
+```bash
+sudo apt-get update
+sudo apt-get install wkhtmltopdf
+```
+
+#### Red Hat/CentOS/Fedora:
+```bash
+sudo dnf install wkhtmltopdf
+# or for older systems
+sudo yum install wkhtmltopdf
+```
+
+#### macOS:
+```bash
+brew install wkhtmltopdf
+```
+
+#### Windows:
+Download and install from the [official website](https://wkhtmltopdf.org/downloads.html)
 
 ## Installation
+
+### Option 1: Using Docker (Recommended)
+
+The easiest way to run this application is using Docker:
+
+```bash
+# Pull the latest image
+docker pull brownster/portmapper:latest
+
+# Run the container
+docker run -p 5000:5000 brownster/portmapper:latest
+```
+
+Then access the application at http://localhost:5000
+
+The Docker image includes all necessary dependencies for PDF generation, including wkhtmltopdf and its required libraries.
+
+#### Building Docker Image Locally
+
+If you want to build the Docker image locally:
+
+```bash
+# Clone the repository
+git clone https://github.com/Brownster/portmapper.git
+cd portmapper
+
+# Build the Docker image
+docker build -t portmapper .
+
+# Run the container
+docker run -p 5000:5000 portmapper
+```
+
+### Option 2: Manual Installation
 
 To set up the project locally, follow these steps:
 
@@ -124,15 +203,31 @@ Usage
     Submit the Form: After selecting the file, enter the required MaaS-NG IP and FQDN, then submit the form.
     Download the Resulting CSV: If the file is processed successfully, you will be prompted to download the resulting CSV with the firewall rules.
 
-Contributing
+## Docker Hub Integration
+
+This project is configured to automatically build and push Docker images to Docker Hub using GitHub Actions. When you push to the main branch or create a tag, a new Docker image will be built and pushed to Docker Hub.
+
+### Setting Up GitHub Actions for Your Fork
+
+If you fork this project and want to use GitHub Actions to push to your own Docker Hub account:
+
+1. Go to your GitHub repository settings
+2. Navigate to Secrets and Variables > Actions
+3. Add the following repository secrets:
+   - `DOCKERHUB_USERNAME`: Your Docker Hub username
+   - `DOCKERHUB_TOKEN`: Your Docker Hub access token (create one in Docker Hub account settings)
+
+4. Update the Docker image name in the GitHub Actions workflow file (`.github/workflows/docker-build-push.yml`) to use your Docker Hub username.
+
+## Contributing
 
 Contributions are welcome, and any contributions you make are greatly appreciated.
 
-    Fork the Project
-    Create your Feature Branch (git checkout -b feature/AmazingFeature)
-    Commit your Changes (git commit -m 'Add some AmazingFeature')
-    Push to the Branch (git push origin feature/AmazingFeature)
-    Open a Pull Request
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 License
 
