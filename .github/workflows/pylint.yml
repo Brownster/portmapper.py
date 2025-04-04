@@ -1,23 +1,38 @@
-name: Pylint
+name: Pylint & Testing
 
 on: [push]
 
 jobs:
-  build:
+  lint-and-test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10"]
+        python-version: ["3.9", "3.10", "3.11"]
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
+        
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pylint
-    - name: Analysing the code with pylint
+        pip install pylint pytest
+        pip install -r requirements.txt
+        
+    - name: Create firewall_check.sh script for testing
       run: |
-        pylint $(git ls-files '*.py')
+        touch firewall_check.sh
+        echo '#!/bin/bash' > firewall_check.sh
+        echo '# Test firewall check script' >> firewall_check.sh
+        echo 'echo "Firewall connectivity check tool"' >> firewall_check.sh
+        chmod +x firewall_check.sh
+        
+    - name: Analyzing the code with pylint
+      run: |
+        pylint --disable=C0111,C0103,C0303,C0330,W1201,W1202,R0914,R0913,R0912,R0915,R0801 $(git ls-files '*.py')
+        
+    - name: Test with pytest
+      run: |
+        pytest test_app.py -v

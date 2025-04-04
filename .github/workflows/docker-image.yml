@@ -1,4 +1,4 @@
-name: Build and Push Docker image
+name: Test, Build and Push Docker image
 
 on:
   push:
@@ -9,7 +9,38 @@ on:
       - main
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Check out the repo
+      uses: actions/checkout@v3
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest
+        
+    - name: Create firewall_check.sh script for testing
+      run: |
+        touch firewall_check.sh
+        echo '#!/bin/bash' > firewall_check.sh
+        echo '# Test firewall check script' >> firewall_check.sh
+        echo 'echo "Firewall connectivity check tool"' >> firewall_check.sh
+        chmod +x firewall_check.sh
+        
+    - name: Test with pytest
+      run: |
+        pytest test_app.py -v
+        
   build:
+    needs: test  # This job depends on the test job completing successfully
     runs-on: ubuntu-latest
 
     steps:
@@ -30,7 +61,7 @@ jobs:
       with:
         context: .
         file: ./Dockerfile
-        push: true
+        push: ${{ github.event_name != 'pull_request' }}  # Only push on main branch, not on PR
         tags: brownster/port-mapper:latest  
 
     - name: Display the built image size

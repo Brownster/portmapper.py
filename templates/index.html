@@ -269,6 +269,22 @@
 
             <div class="template-section">
                 <p>Need a template? <a href="{{ url_for('download_template') }}" class="template-link">Download CSV Template</a></p>
+                <p style="font-size: 14px; color: #666; margin-top: 10px;">
+                    The app now supports:
+                    <ul style="margin-top: 5px; padding-left: 20px;">
+                        <li>
+                            <strong>Edge case configuration</strong> - Servers with special monitoring flags but no standard exporters can have custom ports configured directly in the server selection screen
+                        </li>
+                        <li>
+                            <strong>Firewall check CSV generation</strong> - Includes a 
+                            <a href="{{ url_for('download_check_script') }}" class="template-link">firewall check script</a>
+                            to validate port connectivity
+                        </li>
+                        <li>
+                            <strong>Multiple output formats</strong> - CSV, Excel, PDF, and firewall-specific configurations
+                        </li>
+                    </ul>
+                </p>
                 <a href="https://github.com/Brownster/portmapper.py" target="_blank" class="btn btn-secondary">View on GitHub</a>
             </div>
         </form>
