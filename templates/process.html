@@ -83,17 +83,87 @@
             border-bottom: 1px solid #eee;
             display: flex;
             align-items: center;
+            flex-wrap: wrap;
         }
         
         .hostname-item:last-child {
             border-bottom: none;
         }
         
-        .hostname-item label {
+        .hostname-item.edge-case {
+            background-color: #f8f9fa;
+            padding: 12px 8px;
+            border-left: 4px solid #2980b9;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 5px;
+        }
+        
+        .hostname-label {
             display: flex;
             align-items: center;
-            width: 100%;
+            flex: 0 0 40%;
             cursor: pointer;
+        }
+        
+        .edge-case-label {
+            font-size: 11px;
+            background-color: #2980b9;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 8px;
+        }
+        
+        .edge-case:hover {
+            background-color: #f1f7fb;
+        }
+        
+        .edge-case-ports {
+            display: flex;
+            flex: 1;
+            gap: 15px;
+            margin-left: 30px;
+        }
+        
+        .port-input {
+            flex: 1;
+        }
+        
+        .port-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+            display: block;
+        }
+        
+        .edge-case-port-input {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        
+        .edge-case-port-input:focus {
+            border-color: #2980b9;
+            outline: none;
+        }
+        
+        .edge-case.needs-ports {
+            animation: pulse 2s infinite;
+            background-color: #fff8f8;
+            border-left-color: #e74c3c;
+        }
+        
+        .port-required {
+            border-color: #e74c3c;
+            background-color: #ffeaea;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.2); }
+            70% { box-shadow: 0 0 0 6px rgba(231, 76, 60, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
         }
         
         .hostname-item input[type="checkbox"] {
@@ -193,15 +263,47 @@
             display: flex;
             gap: 15px;
             margin-bottom: 15px;
+            flex-wrap: wrap;
         }
         
         .format-option {
             display: flex;
             align-items: center;
+            position: relative;
         }
         
         .format-option input {
             margin-right: 8px;
+        }
+        
+        .tooltip {
+            position: relative;
+            cursor: help;
+        }
+        
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 220px;
+            background-color: #333;
+            color: white;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -110px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+            line-height: 1.4;
+            pointer-events: none;
+        }
+        
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
         }
         
         .selected-count {
@@ -251,14 +353,43 @@
             
             <div class="hostname-list" id="hostnameList">
                 {% for hostname in hostnames_info %}
-                <div class="hostname-item">
-                    <label>
+                <div class="hostname-item {% if hostname.is_edge_case %}edge-case{% endif %}">
+                    <label class="hostname-label">
                         <input type="checkbox" name="selected_hostnames" value="{{ hostname.fqdn }}" data-ip="{{ hostname.ip }}" onchange="updateSelectedCount()">
+                        <input type="hidden" name="data-ip-{{ hostname.fqdn }}" value="{{ hostname.ip }}">
                         <div class="hostname-details">
                             <span class="hostname-fqdn">{{ hostname.fqdn }}</span>
                             <span class="hostname-ip">{{ hostname.ip }}</span>
+                            {% if hostname.is_edge_case %}
+                            <span class="edge-case-label">Edge Case</span>
+                            {% endif %}
                         </div>
                     </label>
+                    
+                    {% if hostname.is_edge_case %}
+                    <div class="edge-case-ports">
+                        <div class="port-input">
+                            <label class="port-label">To Target:</label>
+                            <input type="text" 
+                                   name="to_target_{{ hostname.fqdn }}" 
+                                   placeholder="e.g., 22,443,8080" 
+                                   value="{{ hostname.suggested_to_target }}"
+                                   class="edge-case-port-input" 
+                                   pattern="[0-9,]*"
+                                   title="Enter port numbers separated by commas (e.g., 22,443,8080). Required for monitoring server to target.">
+                        </div>
+                        <div class="port-input">
+                            <label class="port-label">From Target:</label>
+                            <input type="text" 
+                                   name="from_target_{{ hostname.fqdn }}" 
+                                   placeholder="e.g., 162,514" 
+                                   value="{{ hostname.suggested_from_target }}"
+                                   class="edge-case-port-input" 
+                                   pattern="[0-9,]*"
+                                   title="Enter port numbers separated by commas (e.g., 162,514). Optional return traffic from target to monitoring server.">
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
@@ -278,8 +409,120 @@
                         <input type="radio" name="output_format" value="pdf">
                         PDF
                     </label>
+                    <label class="format-option tooltip">
+                        <input type="radio" name="output_format" value="check_csv">
+                        Firewall Check CSV
+                        <span class="tooltiptext">Creates a CSV with only monitoring server to target entries for port testing</span>
+                    </label>
+                </div>
+                
+                <h4 style="margin: 15px 0 10px 0; font-size: 15px; color: #555;">Firewall-Specific Formats</h4>
+                <div class="output-format">
+                    <label class="format-option tooltip">
+                        <input type="radio" name="output_format" value="cisco">
+                        Cisco ASA
+                        <span class="tooltiptext">Generate Cisco ASA compatible firewall rules</span>
+                    </label>
+                    <label class="format-option tooltip">
+                        <input type="radio" name="output_format" value="juniper">
+                        Juniper SRX
+                        <span class="tooltiptext">Generate Juniper SRX compatible security policies</span>
+                    </label>
+                    <label class="format-option tooltip">
+                        <input type="radio" name="output_format" value="paloalto">
+                        Palo Alto
+                        <span class="tooltiptext">Generate Palo Alto Networks compatible rules</span>
+                    </label>
+                    <label class="format-option tooltip">
+                        <input type="radio" name="output_format" value="iptables">
+                        Linux iptables
+                        <span class="tooltiptext">Generate Linux iptables rules script</span>
+                    </label>
+                </div>
+                
+                <div class="format-info" style="margin-top: 10px; font-size: 13px; color: #666; padding: 8px; background-color: #f5f5f5; border-radius: 4px; display: none;">
+                    <!-- Standard formats info -->
+                    <div class="info-csv">
+                        <p style="margin: 0;">
+                            <strong>CSV Format:</strong> Standard comma-separated values format. Compatible with all spreadsheet applications.
+                        </p>
+                    </div>
+                    <div class="info-excel">
+                        <p style="margin: 0;">
+                            <strong>Excel Format:</strong> Microsoft Excel spreadsheet (.xlsx) format with proper column formatting.
+                        </p>
+                    </div>
+                    <div class="info-pdf">
+                        <p style="margin: 0;">
+                            <strong>PDF Format:</strong> Formatted PDF document with color-coded protocols for better readability.
+                        </p>
+                    </div>
+                    
+                    <!-- Firewall check info -->
+                    <div class="info-check_csv">
+                        <p style="margin: 0 0 8px 0;">
+                            <strong>Firewall Check CSV:</strong> Contains only the monitoring server to target entries for testing port connectivity.
+                        </p>
+                        <p style="margin: 0;">
+                            Download the <a href="{{ url_for('download_check_script') }}" style="color: #2980b9; text-decoration: none;">firewall check script</a> 
+                            to automatically test if the ports are open.
+                        </p>
+                    </div>
+                    
+                    <!-- Firewall-specific formats info -->
+                    <div class="info-cisco">
+                        <p style="margin: 0;">
+                            <strong>Cisco ASA Format:</strong> Access control list (ACL) entries compatible with Cisco ASA firewalls.
+                        </p>
+                    </div>
+                    <div class="info-juniper">
+                        <p style="margin: 0;">
+                            <strong>Juniper SRX Format:</strong> Security policy and application definitions for Juniper SRX devices.
+                        </p>
+                    </div>
+                    <div class="info-paloalto">
+                        <p style="margin: 0;">
+                            <strong>Palo Alto Format:</strong> XML-formatted security rules for Palo Alto Networks firewalls.
+                        </p>
+                    </div>
+                    <div class="info-iptables">
+                        <p style="margin: 0;">
+                            <strong>Linux iptables Format:</strong> Shell script with iptables commands for Linux hosts.
+                        </p>
+                    </div>
                 </div>
             </div>
+            
+            <script>
+                // Show appropriate info section based on selected output format
+                document.addEventListener('DOMContentLoaded', function() {
+                    const formatRadios = document.querySelectorAll('input[name="output_format"]');
+                    const formatInfo = document.querySelector('.format-info');
+                    const infoSections = document.querySelectorAll('[class^="info-"]');
+                    
+                    // Show initial format info (CSV by default)
+                    formatInfo.style.display = 'block';
+                    document.querySelector('.info-csv').style.display = 'block';
+                    
+                    formatRadios.forEach(radio => {
+                        radio.addEventListener('change', function() {
+                            // Show the main info container
+                            formatInfo.style.display = 'block';
+                            
+                            // Hide all info sections
+                            infoSections.forEach(section => {
+                                section.style.display = 'none';
+                            });
+                            
+                            // Show only the relevant info section
+                            const infoToShow = document.querySelector(`.info-${this.value}`);
+                            if (infoToShow) {
+                                infoToShow.style.display = 'block';
+                            }
+                        });
+                    });
+                });
+            </script>
             
             <button type="submit" class="btn btn-primary">Generate Firewall Request</button>
         </form>
@@ -288,6 +531,7 @@
     <script>
         // Initialize
         updateSelectedCount();
+        setupEdgeCasePortInputs();
         
         // Function to toggle all checkboxes
         document.getElementById('checkAll').addEventListener('click', function() {
@@ -354,6 +598,79 @@
             document.getElementById('selectedCount').textContent = count;
         }
         
+        // Setup edge case port input fields to auto-select the hostname
+        function setupEdgeCasePortInputs() {
+            var edgeCaseItems = document.querySelectorAll('.edge-case');
+            edgeCaseItems.forEach(function(item) {
+                // Get the port input fields
+                var portInputs = item.querySelectorAll('.edge-case-port-input');
+                // Get the checkbox
+                var checkbox = item.querySelector('input[type="checkbox"]');
+                
+                if (portInputs.length && checkbox) {
+                    // Add event listeners to port input fields
+                    portInputs.forEach(function(input) {
+                        input.addEventListener('input', function() {
+                            // If user enters anything in a port field, check the checkbox
+                            if (input.value.trim() !== '') {
+                                checkbox.checked = true;
+                                updateSelectedCount();
+                            }
+                            // Update validation styling
+                            updateEdgeCaseValidation();
+                        });
+                    });
+                    
+                    // Add event listener to the checkbox too
+                    checkbox.addEventListener('change', function() {
+                        updateEdgeCaseValidation();
+                    });
+                }
+            });
+            
+            // Initial validation check
+            updateEdgeCaseValidation();
+        }
+        
+        // Function to update validation styling for edge cases
+        function updateEdgeCaseValidation() {
+            var edgeCaseItems = document.querySelectorAll('.edge-case');
+            
+            edgeCaseItems.forEach(function(item) {
+                var checkbox = item.querySelector('input[type="checkbox"]');
+                var portInputs = item.querySelectorAll('.edge-case-port-input');
+                
+                if (checkbox && checkbox.checked) {
+                    // Check if any port is filled in
+                    var hasPort = false;
+                    portInputs.forEach(function(input) {
+                        if (input.value.trim() !== '') {
+                            hasPort = true;
+                        }
+                    });
+                    
+                    // Apply validation styling
+                    if (!hasPort) {
+                        item.classList.add('needs-ports');
+                        portInputs.forEach(function(input) {
+                            input.classList.add('port-required');
+                        });
+                    } else {
+                        item.classList.remove('needs-ports');
+                        portInputs.forEach(function(input) {
+                            input.classList.remove('port-required');
+                        });
+                    }
+                } else {
+                    // Not checked, remove validation styling
+                    item.classList.remove('needs-ports');
+                    portInputs.forEach(function(input) {
+                        input.classList.remove('port-required');
+                    });
+                }
+            });
+        }
+        
         // Function to validate form before submission
         function validateSelection() {
             var checkboxes = document.getElementsByName('selected_hostnames');
@@ -368,6 +685,46 @@
             
             if (!selected) {
                 alert("Please select at least one hostname.");
+                return false;
+            }
+            
+            // Validate port inputs for edge cases
+            var edgeCaseItems = document.querySelectorAll('.edge-case');
+            var invalidPorts = false;
+            
+            edgeCaseItems.forEach(function(item) {
+                var checkbox = item.querySelector('input[type="checkbox"]');
+                
+                // Only validate if this edge case is selected
+                if (checkbox && checkbox.checked) {
+                    var portInputs = item.querySelectorAll('.edge-case-port-input');
+                    var hostnameFqdn = item.querySelector('.hostname-fqdn').textContent;
+                    
+                    // Check if at least one port is specified
+                    var hasPort = false;
+                    
+                    portInputs.forEach(function(input) {
+                        // Check if port values are valid (numbers, commas)
+                        var value = input.value.trim();
+                        if (value) {
+                            hasPort = true;
+                            var isValid = /^[0-9,]+$/.test(value);
+                            if (!isValid) {
+                                alert("Invalid port format for " + hostnameFqdn + ". Please use numbers and commas only.");
+                                invalidPorts = true;
+                            }
+                        }
+                    });
+                    
+                    // Require at least one port for selected edge cases
+                    if (!hasPort) {
+                        alert("Please specify at least one port for the edge case server: " + hostnameFqdn);
+                        invalidPorts = true;
+                    }
+                }
+            });
+            
+            if (invalidPorts) {
                 return false;
             }
             

@@ -1,5 +1,8 @@
 # Port Mapper - Firewall Request Generator
 
+[![Test, Build and Push Docker image](https://github.com/Brownster/portmapper.py/actions/workflows/docker-image.yml/badge.svg)](https://github.com/Brownster/portmapper.py/actions/workflows/docker-image.yml)
+[![Pylint & Testing](https://github.com/Brownster/portmapper.py/actions/workflows/pylint.yml/badge.svg)](https://github.com/Brownster/portmapper.py/actions/workflows/pylint.yml)
+
 This Flask application automates the generation of firewall requests from uploaded CSV files. It parses specific network configurations from the CSV, matches them against a predefined set of exporter configurations, and outputs a new CSV with detailed firewall rules.
 
 ## Features
@@ -8,6 +11,10 @@ This Flask application automates the generation of firewall requests from upload
 - **Rule Mapping**: Maps incoming and outgoing rules based on predefined configurations.
 - **FQDN and IP Handling**: Handles both Fully Qualified Domain Names (FQDN) and IP addresses to specify sources and destinations.
 - **Secure File Handling**: Temporarily stores uploaded files in a secure manner and cleans up old files regularly.
+- **Edge Case Support**: Automatically detects and allows configuration of servers with special monitoring flags but no standard exporters.
+- **Smart Port Suggestions**: Suggests appropriate ports based on monitoring types (SSH Banner, TCP Connect, SNMP, SSL).
+- **Multiple Output Formats**: Supports CSV, Excel, PDF, and firewall-specific formats (Cisco ASA, Juniper SRX, Palo Alto, iptables).
+- **Firewall Check Tool**: Generate a specialized CSV containing only monitoring-to-target entries and use the included shell script to verify port connectivity.
 - **User Feedback**: Provides user feedback via flash messages for file upload success or failure.
 
 ![image](https://github.com/user-attachments/assets/da18ab5d-61aa-47ce-ae8e-1635b3f2f884)
@@ -33,11 +40,28 @@ Your CSV files should include the following columns:
 - `IP Address` - The IP address of the target server
 - One or more exporter columns (e.g., `Exporter_name_os`, `Exporter_name_app`)
 
+### Edge Case Monitoring Flags
+
+The app also supports special monitoring flags for servers without standard exporters:
+
+- `ssh-banner` - For SSH banner monitoring (default port: 22)
+- `tcp-connect` - For TCP connectivity monitoring (default port: 3389)
+- `TCP_Connect_Port` - For custom TCP port monitoring (specify the port number directly)
+- `SNMP` - For SNMP monitoring (default ports: 161 inbound, 162 outbound)
+- `Exporter_SSL` - For SSL certificate monitoring (default port: 443)
+
 Example CSV structure:
 
 ```
-FQDN,IP Address,Exporter_name_os,Exporter_name_app
+FQDN,IP Address,Exporter_name_os,Exporter_name_app,Exporter_name_app_2,Exporter_name_app_3,ssh-banner,tcp-connect,TCP_Connect_Port,SNMP,Exporter_SSL
+server1.example.com,192.168.1.10,exporter_linux,exporter_jmx,,,,,,, 
+server2.example.com,192.168.1.11,exporter_windows,exporter_mpp,,,,,,,
+db1.example.com,192.168.1.20,exporter_linux,exporter_redis,,,,,,,
+blackbox1.example.com,192.168.1.30,,,,true,true,,true,true
+blackbox2.example.com,192.168.1.31,,,,,,,8080,,true
 ```
+
+Note that servers with empty exporter columns but with monitoring flags set (like blackbox1 and blackbox2) will be detected as edge cases, allowing for custom port configuration.
 
 ### Flexible CSV Handling
 
@@ -73,22 +97,114 @@ server2.example.com,192.168.1.11,exporter_windows,exporter_aacc
 server3.example.com,192.168.1.12,exporter_vmware,exporter_breeze
 
 This CSV contains the necessary information about several servers, specifying both the operating system and application-specific firewall rule settings.
-Example Output CSV
+## Output Formats
 
-Based on the input data and the provided exporter configurations, the output would list detailed firewall rules needed for each server. For simplicity, let's say the Monitoring Server IP is 10.10.10.10 and its FQDN is monitor.example.com.
+The application supports multiple output formats:
 
-The output might look like this:
+### Standard CSV Output
 
-Source_FQDN,Source_IP_Address,Destination_FQDN,Destination_IP_Address,Port
-monitor.example.com,10.10.10.10,server1.example.com,192.168.1.10,"TCP: 22"
-monitor.example.com,10.10.10.10,server1.example.com,192.168.1.10,"TCP: 443"
-server1.example.com,192.168.1.10,monitor.example.com,10.10.10.10,"UDP: 514"
-server1.example.com,192.168.1.10,monitor.example.com,10.10.10.10,"TCP: 514"
-server2.example.com,192.168.1.11,monitor.example.com,10.10.10.10,"UDP: 514"
-server2.example.com,192.168.1.11,monitor.example.com,10.10.10.10,"TCP: 514"
-server3.example.com,192.168.1.12,monitor.example.com,10.10.10.10,"UDP: 162"
-server3.example.com,192.168.1.12,monitor.example.com,10.10.10.10,"UDP: 514"
-server3.example.com,192.168.1.12,monitor.example.com,10.10.10.10,"TCP: 514"
+Based on the input data and the provided exporter configurations, the standard CSV output lists detailed firewall rules needed for each server. For simplicity, let's say the Monitoring Server IP is 10.10.10.10 and its FQDN is monitor.example.com.
+
+```
+Source_FQDN,Source_IP_Address,Destination_FQDN,Destination_IP_Address,Proto,Port,Description
+monitor.example.com,10.10.10.10,server1.example.com,192.168.1.10,TCP,22,"Monitoring from monitor.example.com to server1.example.com (exporter_linux)"
+monitor.example.com,10.10.10.10,server1.example.com,192.168.1.10,ICMP,ping,"Monitoring from monitor.example.com to server1.example.com (exporter_linux)"
+monitor.example.com,10.10.10.10,blackbox1.example.com,192.168.1.30,TCP,22,"Monitoring from monitor.example.com to blackbox1.example.com (edge case)"
+monitor.example.com,10.10.10.10,blackbox1.example.com,192.168.1.30,UDP,161,"Monitoring from monitor.example.com to blackbox1.example.com (edge case)"
+blackbox1.example.com,192.168.1.30,monitor.example.com,10.10.10.10,UDP,162,"Return traffic from blackbox1.example.com to monitor.example.com (edge case)"
+```
+
+### Firewall Check CSV
+
+A specialized format that contains only monitoring server to target entries for port connectivity testing:
+
+```
+Target_FQDN,Target_IP,Protocol,Port,Status
+server1.example.com,192.168.1.10,TCP,22,
+server1.example.com,192.168.1.10,ICMP,ping,
+blackbox1.example.com,192.168.1.30,TCP,22,
+blackbox1.example.com,192.168.1.30,UDP,161,
+```
+
+The Status column is left empty for the shell script to fill in with connectivity test results.
+
+### Firewall Configuration Formats
+
+The application can also generate firewall-specific configuration formats:
+
+#### Cisco ASA Format
+```
+! Cisco ASA Firewall Rules
+! Generated on 2025-05-04 08:15:22
+! For MaaS-NG server: monitor.example.com (10.10.10.10)
+!
+access-list MAAS-MONITORING extended permit tcp host 10.10.10.10 host 192.168.1.10 eq 22 ! Monitoring from monitor.example.com to server1.example.com (exporter_linux)
+access-list MAAS-MONITORING extended permit icmp host 10.10.10.10 host 192.168.1.10 ! Monitoring from monitor.example.com to server1.example.com (exporter_linux)
+!
+! End of generated rules
+! Total rules: 5
+```
+
+#### Juniper SRX Format
+```
+# Juniper SRX Security Policy
+# Generated on 2025-05-04 08:15:22
+# For MaaS-NG server: monitor.example.com (10.10.10.10)
+#
+set applications {
+    application maas-TCP-22 protocol tcp destination-port 22
+    application maas-ICMP-ping protocol icmp
+}
+
+set security policies from-zone trust to-zone untrust policy MAAS-1 match source-address 10.10.10.10/32
+set security policies from-zone trust to-zone untrust policy MAAS-1 match destination-address 192.168.1.10/32
+set security policies from-zone trust to-zone untrust policy MAAS-1 match application maas-TCP-22
+set security policies from-zone trust to-zone untrust policy MAAS-1 then permit
+set security policies from-zone trust to-zone untrust policy MAAS-1 then log session-init session-close
+```
+
+#### Linux iptables Format
+```bash
+#!/bin/bash
+# iptables rules for MaaS-NG monitoring
+# Generated on 2025-05-04 08:15:22
+# For MaaS-NG server: monitor.example.com (10.10.10.10)
+
+# Flush existing rules
+iptables -F MAAS-MONITORING 2>/dev/null || iptables -N MAAS-MONITORING
+iptables -F MAAS-MONITORING
+
+# Add monitoring rules
+iptables -A MAAS-MONITORING -p tcp -s 10.10.10.10/32 -d 192.168.1.10/32 --dport 22 -j ACCEPT # Monitoring from monitor.example.com to server1.example.com (exporter_linux)
+iptables -A MAAS-MONITORING -p icmp -s 10.10.10.10/32 -d 192.168.1.10/32 -j ACCEPT # Monitoring from monitor.example.com to server1.example.com (exporter_linux)
+
+# Link chain to INPUT and FORWARD chains
+iptables -A INPUT -j MAAS-MONITORING
+iptables -A FORWARD -j MAAS-MONITORING
+
+echo "Applied 5 MAAS monitoring rules"
+```
+
+### Other Formats
+The application also supports Excel and PDF output formats for better visualization and sharing.
+
+## Firewall Check Script
+
+The application includes a shell script (`firewall_check.sh`) that can be used to test the connectivity to the target servers using the Firewall Check CSV format:
+
+1. Generate a Firewall Check CSV from the application by selecting the "Firewall Check CSV" output format
+2. Download the `firewall_check.sh` script from the application's main page
+3. Run the script with the CSV file:
+
+```bash
+./firewall_check.sh /path/to/firewall_check.csv
+```
+
+The script will:
+- Parse the CSV file
+- Test connectivity to each target using the specified protocol and port
+- Update the Status column with OPEN or CLOSED
+- Generate a results file with the timestamp (e.g., `firewall_check_results_20250504_0815.csv`)
 
 
 
@@ -203,12 +319,24 @@ bash
 flask run
 
 This will start the Flask server on http://127.0.0.1:5000/, where you can access the web interface to upload CSV files and generate firewall requests.
-Usage
+## Usage
 
-    Access the Web Interface: Open a web browser and go to http://127.0.0.1:5000/.
-    Upload a CSV File: Click the "Browse" button to select a CSV file from your computer that matches the expected format.
-    Submit the Form: After selecting the file, enter the required MaaS-NG IP and FQDN, then submit the form.
-    Download the Resulting CSV: If the file is processed successfully, you will be prompted to download the resulting CSV with the firewall rules.
+1. **Access the Web Interface**: Open a web browser and go to http://127.0.0.1:5000/
+2. **Upload a CSV File**: 
+   - Click the "Browse" button to select a CSV file from your computer that matches the expected format
+   - Enter the required MaaS-NG IP and FQDN
+   - Submit the form
+3. **Select Target Servers**:
+   - The app displays a list of all servers found in the CSV
+   - Servers identified as edge cases (with monitoring flags but no exporters) will be highlighted
+   - For edge case servers, you can configure custom ports directly in the server selection screen
+   - Use the checkboxes to select which servers to include in your firewall request
+4. **Choose Output Format**:
+   - Select your preferred output format (CSV, Excel, PDF, Firewall Check CSV, or firewall-specific formats)
+   - Click "Generate Firewall Request"
+5. **Download the Result**:
+   - The file will be generated and downloaded automatically
+   - For Firewall Check CSV, you can also download the firewall check script to test connectivity
 
 ## Docker Hub Integration
 
