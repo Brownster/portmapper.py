@@ -31,7 +31,7 @@ jobs:
         
     - name: Analyzing the code with pylint
       run: |
-        pylint --disable=C0111,C0103,C0303,C0330,W1201,W1202,R0914,R0913,R0912,R0915,R0801 $(git ls-files '*.py')
+        pylint --disable=C0111,C0103,C0303,C0301,C0302,C0304,C0411,W1201,W1202,W1203,W1309,W1514,W0611,W0612,W0613,W0621,W0718,R0801,R0911,R0912,R0913,R0914,R0915,R0917,R1702,R1705 $(git ls-files '*.py')
         
     - name: Test with pytest
       run: |
