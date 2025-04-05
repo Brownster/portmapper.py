@@ -4,6 +4,7 @@ Tests for the Flask application's port mapping functionality.
 import os
 import io
 import csv
+import json
 import pytest
 import tempfile
 from flask import session
@@ -323,6 +324,138 @@ blackbox2.example.com,192.168.1.31,,,,,8080,,true
     # Verify the CSV contains only monitoring server to target entries
     assert 'server1.example.com,192.168.1.10' in csv_data
     assert 'blackbox1.example.com,192.168.1.30' in csv_data
+
+def test_port_mappings_tab(client):
+    """Test that the port mappings tab is present on the process page."""
+    # First upload a file
+    test_data = {
+        'maas_ng_fqdn': 'monitor.example.com',
+        'maas_ng_ip': '10.10.10.10',
+        'file': (create_test_csv(), 'test.csv')
+    }
+    client.post('/', data=test_data, content_type='multipart/form-data')
+    
+    # Access the process page
+    response = client.get('/process')
+    
+    # Check for tabs and port mappings tab content
+    html_content = response.data.decode('utf-8')
+    assert '<div class="tab-header">' in html_content
+    assert 'data-tab="server-selection"' in html_content
+    assert 'data-tab="port-mappings"' in html_content
+    assert '<h3>Custom Exporter Configuration</h3>' in html_content
+    assert '<div class="custom-exporter-form">' in html_content
+    assert 'id="new-exporter-name"' in html_content
+    assert 'id="new-to-target"' in html_content
+    assert 'id="new-from-target"' in html_content
+    assert 'id="port-mappings-table"' in html_content
+
+def test_port_mappings_api_get(client):
+    """Test the GET endpoint for fetching port mappings."""
+    # Access the API endpoint
+    response = client.get('/api/port_mappings')
+    
+    # Check the response
+    assert response.status_code == 200
+    
+    # Parse the JSON response
+    data = json.loads(response.data)
+    
+    # Verify some built-in port mappings are present
+    assert 'exporter_linux' in data
+    assert 'exporter_windows' in data
+    assert 'src' in data['exporter_linux']
+    assert 'dst' in data['exporter_linux']
+
+def test_port_mappings_api_post(client):
+    """Test the POST endpoint for setting custom port mappings."""
+    # Create test data for custom port mappings
+    custom_mappings = {
+        'exporter_custom': {
+            'src': [['TCP', '8000'], ['TCP', '9000']],
+            'dst': [['TCP', '8888']]
+        }
+    }
+    
+    # Submit custom mappings to the API
+    response = client.post('/api/port_mappings', 
+                           data=json.dumps(custom_mappings),
+                           content_type='application/json')
+    
+    # Check the response
+    assert response.status_code == 200
+    
+    # Verify the custom mappings are stored in the session
+    with client.session_transaction() as sess:
+        assert 'custom_port_mappings' in sess
+        assert 'exporter_custom' in sess['custom_port_mappings']
+        assert sess['custom_port_mappings']['exporter_custom']['src'] == [['TCP', '8000'], ['TCP', '9000']]
+        assert sess['custom_port_mappings']['exporter_custom']['dst'] == [['TCP', '8888']]
+
+def test_custom_port_mappings_integration(client):
+    """Test that custom port mappings are used in the CSV generation process."""
+    # First upload a file
+    test_data = {
+        'maas_ng_fqdn': 'monitor.example.com',
+        'maas_ng_ip': '10.10.10.10',
+        'file': (create_test_csv(), 'test.csv')
+    }
+    client.post('/', data=test_data, content_type='multipart/form-data')
+    
+    # Set up session data for the test
+    with client.session_transaction() as sess:
+        sess['file_path'] = os.path.join(app.config['UPLOAD_FOLDER'], 'test.csv')
+        # Create a test file
+        with open(sess['file_path'], 'w') as f:
+            f.write("""FQDN,IP Address,Exporter_name_os,Exporter_name_app,ssh-banner,tcp-connect,TCP_Connect_Port,SNMP,Exporter_SSL
+server1.example.com,192.168.1.10,exporter_custom,,,,,,
+""")
+        # Add custom port mappings to the session
+        sess['custom_port_mappings'] = {
+            'exporter_custom': {
+                'src': [['TCP', '8080'], ['TCP', '9090']],
+                'dst': [['TCP', '7070']]
+            }
+        }
+    
+    # Submit the form to generate output
+    form_data = {
+        'selected_hostnames': ['server1.example.com'],
+        'maas_ng_fqdn': 'monitor.example.com',
+        'maas_ng_ip': '10.10.10.10',
+        'output_format': 'csv'
+    }
+    
+    # This will be handled by the generate_output_csv route
+    response = client.post('/generate_output_csv', data=form_data)
+    
+    # Check that we get a proper CSV response
+    assert response.status_code == 200
+    assert 'text/csv' in response.headers.get('Content-Type', '')
+    
+    # Read the CSV data
+    csv_content = response.data.decode('utf-8')
+    reader = csv.reader(io.StringIO(csv_content))
+    rows = list(reader)
+    
+    # Find rows with the custom ports
+    has_port_8080 = False
+    has_port_9090 = False
+    has_port_7070 = False
+    
+    for row in rows:
+        if len(row) >= 6:  # Ensure the row has enough columns
+            if row[4] == 'TCP' and row[5] == '8080':
+                has_port_8080 = True
+            elif row[4] == 'TCP' and row[5] == '9090':
+                has_port_9090 = True
+            elif row[4] == 'TCP' and row[5] == '7070':
+                has_port_7070 = True
+    
+    # Check that all custom ports are present
+    assert has_port_8080, "Custom port 8080 not found in CSV output"
+    assert has_port_9090, "Custom port 9090 not found in CSV output"
+    assert has_port_7070, "Custom port 7070 not found in CSV output"
 
 if __name__ == "__main__":
     pytest.main()

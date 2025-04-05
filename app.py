@@ -70,6 +70,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
     standard exporters. Servers without exporters but with special monitoring flags
     are handled separately through the edge case flow.
     """
+    # Define the default port mappings
     port_mappings = {
         "exporter_cms": {
             "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "443"), ("SSL", "443")],
@@ -208,6 +209,29 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             "dst": [],
         },
     }
+    
+    # Check for custom port mappings in session and merge them with the defaults
+    if 'custom_port_mappings' in session and session['custom_port_mappings']:
+        custom_mappings = session['custom_port_mappings']
+        logger.info(f"Found {len(custom_mappings)} custom port mappings in session")
+        
+        # Add custom mappings to the port_mappings dictionary
+        for exporter_name, mapping in custom_mappings.items():
+            # Convert the format from the client-side format to the server-side format
+            if 'src' in mapping and isinstance(mapping['src'], list):
+                src_ports = [tuple(port_entry) for port_entry in mapping['src']]
+            else:
+                src_ports = []
+                
+            if 'dst' in mapping and isinstance(mapping['dst'], list):
+                dst_ports = [tuple(port_entry) for port_entry in mapping['dst']]
+            else:
+                dst_ports = []
+                
+            port_mappings[exporter_name] = {
+                "src": src_ports,
+                "dst": dst_ports
+            }
 
     unique_entries = set()
     processed_count = 0
@@ -1101,6 +1125,166 @@ def download_check_script():
         logger.error(f"Error providing check script: {e}")
         flash(f"Error downloading firewall check script: {str(e)}", "error")
         return redirect(url_for("upload_csv"))
+
+@app.route("/api/port_mappings", methods=["GET", "POST"])
+def port_mappings_api():
+    """API endpoint for getting and setting custom port mappings."""
+    # Define the default port mappings (same as in create_port_csv function)
+    default_port_mappings = {
+        "exporter_cms": {
+            "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "443"), ("SSL", "443")],
+            "dst": [],
+        },
+        "exporter_aes": {
+            "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "443"), ("SSL", "8443")],
+            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
+        },
+        "exporter_aessnmp": {
+            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_gateway": {
+            "src": [("UDP", "161"), ("TCP", "22"), ("ICMP", "ping")],
+            "dst": [("UDP", "162")],
+        },
+        "exporter_ams": {
+            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "8443"), ("ICMP", "ping"), ("SSL", "8443")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_sm": {
+            "src": [("TCP", "22"), ("ICMP", "ping")],
+            "dst": [("UDP", "162")],
+        },
+        "exporter_avayasbc": {
+            "src": [("TCP", "22"), ("TCP", "222"), ("UDP", "161"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_aaep": {
+            "src": [("TCP", "22"), ("TCP", "5432"), ("UDP", "161"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_mpp": {
+            "src": [("TCP", "22"), ("ICMP", "ping")],
+            "dst": [],
+        },
+        "exporter_windows": {
+            "src": [("TCP", "9182"), ("ICMP", "ping")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_linux": {
+            "src": [("TCP", "22"), ("ICMP", "ping")],
+            "dst": [],
+        },
+        "exporter_ipo": {
+            "src": [("TCP", "22"), ("TCP", "443"), ("UDP", "161")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_iq": {
+            "src": [("TCP", "22"), ("TCP", "443"), ("ICMP", "ping")],
+            "dst": [],
+        },
+        "exporter_weblm": {
+            "src": [("TCP", "22"), ("TCP", "443"), ("TCP", "52233"), ("ICMP", "ping"), ("SSL", "443"), ("SSL", "52233")],
+            "dst": [],
+        },
+        "exporter_aacc": {
+            "src": [("TCP", "9182"), ("TCP", "8443"), ("ICMP", "ping"), ("SSL", "443")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_wfodb": {
+            "src": [("TCP", "1433"), ("TCP", "9182"), ("ICMP", "ping")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_verint": {
+            "src": [("TCP", "9182"), ("ICMP", "ping"), ("TCP", "8443"), ("ICMP", "ping"), ("SSL", "8443")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_network": {
+            "src": [("UDP", "161"), ("ICMP", "ping")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_tcti": {
+            "src": [("TCP", "8080"), ("ICMP", "ping")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_callback": {
+            "src": [("TCP", "1433"), ("ICMP", "ping")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_nuancelm": {
+            "src": [("TCP", "9182"), ("TCP", "27000"), ("ICMP", "ping")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_jmx": {
+            "src": [("TCP", "7080"), ("ICMP", "ping")],
+            "dst": [],
+        },
+        "exporter_breeze": {
+            "src": [("TCP", "22"), ("ICMP", "ping"), ("SSL", "443")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_acm": {
+            "src": [("TCP", "22"), ("TCP", "5022"), ("TCP", "443"), ("UDP", "161"), ("ICMP", "ping"), ("SSL", "443")],
+            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
+        },
+        "exporter_vmware": {
+            "src": [("TCP", "22"), ("ICMP", "PING"), ("TCP", "443")],
+            "dst": [],
+        },
+        "exporter_kafka": {
+            "src": [("TCP", "9092")],
+            "dst": [],
+        },
+        "exporter_drac": {
+            "src": [("TCP", "22"), ("ICMP", "PING"), ("UDP", "161")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_pfsense": {
+            "src": [("TCP", "22"), ("ICMP", "PING"), ("UDP", "161")],
+            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_aic": {
+            "src": [("TCP", "9183"), ("ICMP", "ping"), ("SSL", "443")],
+            "dst": [("UDP", "514"), ("TCP", "514")],
+        },
+        "exporter_voiceportal": {
+            "src": [("TCP", "5432"), ("ICMP", "ping"), ("TCP", "443"), ("TCP", "22")],
+            "dst": [],
+        },
+        "exporter_aam": {
+            "src": [("ICMP", "ping"), ("TCP", "8443"), ("TCP", "22"), ("UDP", "161"), ("SSL", "8443")],
+            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
+        },
+        "exporter_pc5": {
+            "src": [("ICMP", "ping"), ("TCP", "22")],
+            "dst": [],
+        },
+        "exporter_audiocodes": {
+            "src": [("ICMP", "ping"), ("TCP", "22"), ("UDP", "161"), ("SSL", "443")],
+            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162"), ("SSL", "443")],
+        },
+        "exporter_redis": {
+            "src": [("TCP", "6379")],
+            "dst": [],
+        }
+    }
+    
+    if request.method == "GET":
+        # Return the built-in port mappings as JSON
+        return jsonify(default_port_mappings)
+    elif request.method == "POST":
+        try:
+            # Get custom port mappings from request
+            custom_mappings = request.json
+            
+            # Store in session for use during CSV generation
+            session['custom_port_mappings'] = custom_mappings
+            
+            logger.info(f"Received {len(custom_mappings)} custom port mappings")
+            return jsonify({"status": "success", "message": f"Saved {len(custom_mappings)} custom port mappings"})
+        except Exception as e:
+            logger.error(f"Error saving custom port mappings: {e}")
+            return jsonify({"status": "error", "message": str(e)}), 400
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))

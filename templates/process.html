@@ -26,8 +26,307 @@
             padding: 30px;
             border-radius: 15px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-            max-width: 800px;
+            max-width: 900px;
             width: 100%;
+        }
+        
+        /* Tab Styles */
+        .tabs {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        
+        .tab-header {
+            display: flex;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 20px;
+        }
+        
+        .tab-btn {
+            padding: 10px 20px;
+            background-color: #f8f9fa;
+            cursor: pointer;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-btn:hover {
+            background-color: #e9ecef;
+        }
+        
+        .tab-btn.active {
+            background-color: #2980b9;
+            color: white;
+            border-bottom: 2px solid #2980b9;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 15px 0;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Port Mappings Styles */
+        .section-description {
+            color: #666;
+            margin-top: -10px;
+            margin-bottom: 20px;
+            font-size: 15px;
+        }
+        
+        .tab-content h3 {
+            font-size: 22px;
+            color: #333;
+            margin-top: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .custom-exporter-form {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border-left: 4px solid #27ae60;
+        }
+        
+        .custom-exporter-form h4 {
+            margin-top: 0;
+            color: #444;
+            font-size: 16px;
+        }
+        
+        .add-exporter-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            align-items: start;
+        }
+        
+        .exporter-field {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+        }
+        
+        .exporter-field label {
+            font-size: 14px;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        .exporter-field input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            height: 35px;
+            box-sizing: border-box;
+        }
+        
+        .exporter-field input:focus {
+            border-color: #2980b9;
+            outline: none;
+        }
+        
+        .exporter-field small {
+            font-size: 11px;
+            color: #777;
+            margin-top: 3px;
+            display: block;
+            width: 100%;
+            text-align: left;
+        }
+        
+        .exporter-field:last-child {
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-end;
+        }
+        
+        .btn-add {
+            background-color: #27ae60;
+            color: white;
+            padding: 0 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            height: 35px;
+            line-height: 35px;
+            font-weight: 500;
+            font-size: 14px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .btn-add:hover {
+            background-color: #2ecc71;
+        }
+        
+        .port-mappings-container {
+            margin-bottom: 25px;
+        }
+        
+        .port-mappings-container h4 {
+            margin-top: 5px;
+            color: #444;
+            font-size: 16px;
+        }
+        
+        .port-mappings-table-wrapper {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+        
+        .port-mappings-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .port-mappings-table th {
+            background-color: #2980b9;
+            color: white;
+            text-align: left;
+            padding: 10px 15px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .port-mappings-table td {
+            padding: 8px 15px;
+            border-bottom: 1px solid #eee;
+            word-wrap: break-word;
+            max-width: 350px;
+        }
+        
+        /* Make sure the protocol column is wide enough */
+        .port-mappings-table td:nth-child(2),
+        .port-mappings-table td:nth-child(3) {
+            min-width: 300px;
+        }
+        
+        .port-mappings-table tr:nth-child(even) {
+            background-color: #f5f7fa;
+        }
+        
+        .port-mappings-table tr:hover {
+            background-color: #edf7fd;
+        }
+        
+        /* Ensure proper wrapping of long port lists */
+        .port-mappings-table td {
+            vertical-align: top;
+            line-height: 1.4;
+            padding-top: 12px;
+            padding-bottom: 12px;
+        }
+        
+        .loading-message {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+        }
+        
+        .custom-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            color: white;
+            background-color: #7f8c8d;
+        }
+        
+        .badge-yes {
+            background-color: #e74c3c;
+        }
+        
+        .badge-no {
+            background-color: #7f8c8d;
+        }
+        
+        .action-button {
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            color: #2980b9;
+            padding: 2px 8px;
+            border-radius: 3px;
+        }
+        
+        .action-button:hover {
+            background-color: #edf7fd;
+            text-decoration: underline;
+        }
+        
+        .action-button.delete {
+            color: #e74c3c;
+        }
+        
+        .action-button.delete:hover {
+            background-color: #fde8e8;
+        }
+        
+        .info-note {
+            font-size: 13px;
+            color: #666;
+            background-color: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 5px;
+            border-left: 4px solid #f39c12;
+            margin-top: 15px;
+        }
+        
+        .btn-secondary {
+            background-color: #7f8c8d;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #95a5a6;
+        }
+        
+        @media (max-width: 768px) {
+            .add-exporter-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+            
+            .port-mappings-table-wrapper {
+                overflow-x: auto;
+            }
+            
+            .edge-case-ports {
+                flex-direction: column;
+                margin-left: 10px;
+                gap: 10px;
+            }
+            
+            .port-input {
+                width: 100%;
+            }
+            
+            .hostname-item.edge-case {
+                padding: 12px;
+            }
+            
+            .hostname-label {
+                margin-bottom: 12px;
+            }
         }
         
         .form-header {
@@ -95,14 +394,23 @@
             padding: 12px 8px;
             border-left: 4px solid #2980b9;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            margin-bottom: 5px;
+            margin-bottom: 10px;
+            flex-direction: column;
+            align-items: flex-start;
         }
         
         .hostname-label {
             display: flex;
             align-items: center;
-            flex: 0 0 40%;
+            flex: 0 0 100%;
             cursor: pointer;
+            margin-bottom: 8px;
+        }
+        
+        /* For non-edge case items, maintain original layout */
+        .hostname-item:not(.edge-case) .hostname-label {
+            flex: 0 0 40%;
+            margin-bottom: 0;
         }
         
         .edge-case-label {
@@ -121,19 +429,23 @@
         .edge-case-ports {
             display: flex;
             flex: 1;
-            gap: 15px;
+            gap: 20px;
             margin-left: 30px;
+            flex-wrap: wrap;
         }
         
         .port-input {
             flex: 1;
+            min-width: 150px; /* Ensure minimum width */
+            margin-bottom: 8px;
         }
         
         .port-label {
             font-size: 12px;
             color: #666;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
             display: block;
+            font-weight: 500;
         }
         
         .edge-case-port-input {
@@ -142,6 +454,7 @@
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 13px;
+            box-sizing: border-box;
         }
         
         .edge-case-port-input:focus {
@@ -286,19 +599,40 @@
             width: 220px;
             background-color: #333;
             color: white;
-            text-align: center;
+            text-align: left;
             border-radius: 6px;
-            padding: 8px;
+            padding: 10px;
             position: absolute;
-            z-index: 1;
+            z-index: 100;
             bottom: 125%;
             left: 50%;
             margin-left: -110px;
             opacity: 0;
             transition: opacity 0.3s;
             font-size: 12px;
-            line-height: 1.4;
+            line-height: 1.5;
             pointer-events: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        
+        /* For tooltips on the right side elements */
+        .tooltip-right .tooltiptext {
+            left: auto;
+            right: 0;
+            margin-left: 0;
+        }
+        
+        /* For tooltips on the left side elements */
+        .tooltip-left .tooltiptext {
+            left: 0;
+            right: auto;
+            margin-left: 0;
+        }
+        
+        /* For bottom positioned tooltips */
+        .tooltip-bottom .tooltiptext {
+            bottom: auto;
+            top: 125%;
         }
         
         .tooltip:hover .tooltiptext {
@@ -328,16 +662,33 @@
 <body>
     <div class="container">
         <div class="form-header">
-            <h1>Select Hostnames</h1>
-            <p>Choose the devices to include in your firewall request</p>
+            <h1>Firewall Request Configuration</h1>
+            <p>Configure servers and port mappings for your firewall request</p>
         </div>
+        
+        <!-- Tab Navigation -->
+        <div class="tabs">
+            <div class="tab-header">
+                <div class="tab-btn active tooltip" data-tab="server-selection">
+                    Server Selection
+                    <span class="tooltiptext">Select servers from your CSV file to include in your firewall request</span>
+                </div>
+                <div class="tab-btn tooltip" data-tab="port-mappings">
+                    Port Mappings
+                    <span class="tooltiptext">View and customize port configurations for different exporters</span>
+                </div>
+            </div>
+            
+            <!-- Server Selection Tab -->
+            <div class="tab-content active" id="server-selection">
         
         <form method="post" action="{{ url_for('generate_output_csv') }}" onsubmit="return validateSelection()">
             <input type="hidden" name="maas_ng_ip" value="{{ maas_ng_ip }}">
             <input type="hidden" name="maas_ng_fqdn" value="{{ maas_ng_fqdn }}">
             
-            <div class="search-box">
+            <div class="search-box tooltip">
                 <input type="text" id="hostnameSearch" placeholder="Search hostnames..." oninput="filterHostnames()">
+                <span class="tooltiptext tooltip-bottom">Search by hostname or IP address to filter the list</span>
             </div>
             
             <div class="stats-bar">
@@ -346,9 +697,18 @@
             </div>
             
             <div class="checkbox-controls">
-                <button type="button" class="btn btn-check" id="checkAll">Select All</button>
-                <button type="button" class="btn btn-check" id="uncheckAll">Deselect All</button>
-                <button type="button" class="btn btn-check" onclick="toggleHostnamesWithIP()">Toggle by IP Pattern</button>
+                <button type="button" class="btn btn-check tooltip" id="checkAll">
+                    Select All
+                    <span class="tooltiptext tooltip-bottom">Select all visible servers in the list</span>
+                </button>
+                <button type="button" class="btn btn-check tooltip" id="uncheckAll">
+                    Deselect All
+                    <span class="tooltiptext tooltip-bottom">Clear all server selections</span>
+                </button>
+                <button type="button" class="btn btn-check tooltip" onclick="toggleHostnamesWithIP()">
+                    Toggle by IP Pattern
+                    <span class="tooltiptext tooltip-bottom">Toggle selection of servers matching an IP pattern (e.g., 192.168)</span>
+                </button>
             </div>
             
             <div class="hostname-list" id="hostnameList">
@@ -361,32 +721,43 @@
                             <span class="hostname-fqdn">{{ hostname.fqdn }}</span>
                             <span class="hostname-ip">{{ hostname.ip }}</span>
                             {% if hostname.is_edge_case %}
-                            <span class="edge-case-label">Edge Case</span>
+                            <span class="edge-case-label tooltip">
+                                Edge Case
+                                <span class="tooltiptext tooltip-bottom">Server requires manual port configuration</span>
+                            </span>
                             {% endif %}
                         </div>
                     </label>
                     
                     {% if hostname.is_edge_case %}
                     <div class="edge-case-ports">
-                        <div class="port-input">
+                        <div class="port-input tooltip">
                             <label class="port-label">To Target:</label>
                             <input type="text" 
                                    name="to_target_{{ hostname.fqdn }}" 
                                    placeholder="e.g., 22,443,8080" 
                                    value="{{ hostname.suggested_to_target }}"
                                    class="edge-case-port-input" 
-                                   pattern="[0-9,]*"
-                                   title="Enter port numbers separated by commas (e.g., 22,443,8080). Required for monitoring server to target.">
+                                   pattern="[0-9,]*">
+                            <span class="tooltiptext">
+                                <strong>Monitoring → Target:</strong> Ports that the monitoring server needs to connect to on this server.
+                                <br><br>
+                                Enter port numbers separated by commas (e.g., 22,443,8080).
+                            </span>
                         </div>
-                        <div class="port-input">
+                        <div class="port-input tooltip">
                             <label class="port-label">From Target:</label>
                             <input type="text" 
                                    name="from_target_{{ hostname.fqdn }}" 
                                    placeholder="e.g., 162,514" 
                                    value="{{ hostname.suggested_from_target }}"
                                    class="edge-case-port-input" 
-                                   pattern="[0-9,]*"
-                                   title="Enter port numbers separated by commas (e.g., 162,514). Optional return traffic from target to monitoring server.">
+                                   pattern="[0-9,]*">
+                            <span class="tooltiptext">
+                                <strong>Target → Monitoring:</strong> Return traffic ports from this server back to the monitoring server.
+                                <br><br>
+                                Enter port numbers separated by commas (e.g., 162,514). Optional.
+                            </span>
                         </div>
                     </div>
                     {% endif %}
@@ -524,14 +895,135 @@
                 });
             </script>
             
-            <button type="submit" class="btn btn-primary">Generate Firewall Request</button>
+            <button type="submit" class="btn btn-primary tooltip">
+                Generate Firewall Request
+                <span class="tooltiptext tooltip-left">
+                    Create firewall rules based on your selected servers and configured port mappings
+                </span>
+            </button>
         </form>
+            </div>
+            
+            <!-- Port Mappings Tab -->
+            <div class="tab-content" id="port-mappings">
+                <h3>Custom Exporter Configuration</h3>
+                <p class="section-description">Add custom exporters or modify existing port mappings</p>
+                
+                <!-- Add New Exporter Form -->
+                <div class="custom-exporter-form">
+                    <h4>Add New Exporter</h4>
+                    <form id="new-exporter-form" onsubmit="event.preventDefault(); addNewExporter();">
+                        <div class="add-exporter-grid">
+                            <div class="exporter-field tooltip">
+                                <label for="new-exporter-name">Exporter Name</label>
+                                <input type="text" id="new-exporter-name" placeholder="e.g., exporter_custom" pattern="[a-zA-Z0-9_-]+" required>
+                                <div style="height: 18px;"></div> <!-- Spacer to align with other fields -->
+                                <span class="tooltiptext">
+                                    Name for the custom exporter configuration.
+                                    <br><br>
+                                    Must contain only letters, numbers, underscores, and hyphens.
+                                    <br>
+                                    Example: exporter_custom_app
+                                </span>
+                            </div>
+                            <div class="exporter-field tooltip">
+                                <label for="new-to-target">To Target Ports</label>
+                                <input type="text" id="new-to-target" placeholder="e.g., 22,443,8080" pattern="[0-9,]+" required>
+                                <small style="display: block; margin-top: 3px;">Comma-separated TCP ports</small>
+                                <span class="tooltiptext">
+                                    <strong>Monitoring → Target:</strong> Ports that the monitoring server needs to connect to.
+                                    <br><br>
+                                    Enter comma-separated port numbers.
+                                    <br>
+                                    Example: 22,443,8080
+                                </span>
+                            </div>
+                            <div class="exporter-field tooltip">
+                                <label for="new-from-target">From Target Ports</label>
+                                <input type="text" id="new-from-target" placeholder="e.g., 162,514" pattern="[0-9,]*">
+                                <small style="display: block; margin-top: 3px;">Comma-separated TCP ports (optional)</small>
+                                <span class="tooltiptext">
+                                    <strong>Target → Monitoring:</strong> Return traffic ports from targets back to the monitoring server.
+                                    <br><br>
+                                    Enter comma-separated port numbers. This field is optional.
+                                    <br>
+                                    Example: 162,514
+                                </span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px; text-align: center;">
+                            <button type="submit" class="btn-add tooltip" id="add-exporter-btn" style="max-width: 200px; margin: 0 auto;">
+                                Add Exporter
+                                <span class="tooltiptext">
+                                    Add this custom exporter configuration to your session.
+                                    <br><br>
+                                    Custom exporters will be available for use in any firewall requests you generate in this session.
+                                </span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Port Mappings Table -->
+                <div class="port-mappings-container">
+                    <h4>Current Port Mappings</h4>
+                    <div class="port-mappings-table-wrapper">
+                        <table class="port-mappings-table" id="port-mappings-table">
+                            <thead>
+                                <tr>
+                                    <th class="tooltip">
+                                        Exporter Name
+                                        <span class="tooltiptext tooltip-bottom">
+                                            Unique identifier for this exporter configuration
+                                        </span>
+                                    </th>
+                                    <th class="tooltip">
+                                        To Target (Monitoring→Target)
+                                        <span class="tooltiptext tooltip-bottom">
+                                            Ports that monitoring servers need to connect to on target servers
+                                        </span>
+                                    </th>
+                                    <th class="tooltip">
+                                        From Target (Target→Monitoring)
+                                        <span class="tooltiptext tooltip-bottom">
+                                            Return traffic ports from target servers back to monitoring servers
+                                        </span>
+                                    </th>
+                                    <th class="tooltip">
+                                        Custom
+                                        <span class="tooltiptext tooltip-bottom">
+                                            Whether this is a user-defined custom exporter or a built-in configuration
+                                        </span>
+                                    </th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="port-mappings-body">
+                                <!-- Port mappings will be loaded here via JavaScript -->
+                                <tr class="loading-row">
+                                    <td colspan="5" class="loading-message">Loading port mappings...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="info-note">
+                        <strong>Note:</strong> Custom exporters are stored for the current session only. They will be used for any firewall requests generated during this session.
+                    </p>
+                </div>
+                
+                <div class="tab-buttons">
+                    <button type="button" class="btn btn-secondary" id="back-to-servers-btn">Back to Server Selection</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
         // Initialize
         updateSelectedCount();
         setupEdgeCasePortInputs();
+        initializeTabs();
+        setupPortMappingsTab();
         
         // Function to toggle all checkboxes
         document.getElementById('checkAll').addEventListener('click', function() {
@@ -728,7 +1220,559 @@
                 return false;
             }
             
+            // Submit custom port mappings to the server before form submission
+            try {
+                // Get custom mappings from local storage
+                const storedMappings = localStorage.getItem('customPortMappings');
+                if (storedMappings) {
+                    const customMappings = JSON.parse(storedMappings);
+                    
+                    // Send to server
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/api/port_mappings', false); // Synchronous request
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.send(JSON.stringify(customMappings));
+                    
+                    if (xhr.status !== 200) {
+                        console.error('Error submitting custom port mappings:', xhr.responseText);
+                    }
+                }
+            } catch (error) {
+                console.error('Error processing custom port mappings:', error);
+            }
+            
             return true;
+        }
+        
+        // Tab functionality
+        function initializeTabs() {
+            var tabButtons = document.querySelectorAll('.tab-btn');
+            var tabContents = document.querySelectorAll('.tab-content');
+            
+            // Add click event to each tab button
+            tabButtons.forEach(function(button) {
+                button.addEventListener('click', function() {
+                    // Get the target tab ID from data-tab attribute
+                    var targetTabId = this.getAttribute('data-tab');
+                    
+                    // Remove active class from all buttons and tabs
+                    tabButtons.forEach(function(btn) {
+                        btn.classList.remove('active');
+                    });
+                    
+                    tabContents.forEach(function(content) {
+                        content.classList.remove('active');
+                    });
+                    
+                    // Add active class to clicked button
+                    this.classList.add('active');
+                    
+                    // Add active class to target tab content
+                    document.getElementById(targetTabId).classList.add('active');
+                });
+            });
+            
+            // Back to server selection button functionality
+            var backButton = document.getElementById('back-to-servers-btn');
+            if (backButton) {
+                backButton.addEventListener('click', function() {
+                    // Activate the server selection tab
+                    tabButtons.forEach(function(btn) {
+                        btn.classList.remove('active');
+                        if (btn.getAttribute('data-tab') === 'server-selection') {
+                            btn.classList.add('active');
+                        }
+                    });
+                    
+                    tabContents.forEach(function(content) {
+                        content.classList.remove('active');
+                    });
+                    
+                    document.getElementById('server-selection').classList.add('active');
+                });
+            }
+        }
+        
+        // Port Mappings functionality
+        function setupPortMappingsTab() {
+            // Load the built-in port mappings from app.py
+            loadPortMappings();
+            
+            // Add new exporter button functionality
+            var addExporterBtn = document.getElementById('add-exporter-btn');
+            if (addExporterBtn) {
+                addExporterBtn.addEventListener('click', function() {
+                    addNewExporter();
+                });
+            }
+        }
+        
+        // Function to load port mappings from the server
+        function loadPortMappings() {
+            // Initialize with a complete set of all built-in port mappings from app.py
+            let builtInMappings = {
+                "exporter_cms": {
+                    "src": [["TCP", "22"], ["ICMP", "ping"], ["TCP", "443"], ["SSL", "443"]],
+                    "dst": [],
+                    "custom": false
+                },
+                "exporter_aes": {
+                    "src": [["TCP", "22"], ["ICMP", "ping"], ["TCP", "443"], ["SSL", "8443"]],
+                    "dst": [["UDP", "514"], ["TCP", "514"], ["UDP", "162"]],
+                    "custom": false
+                },
+                "exporter_aessnmp": {
+                    "src": [["TCP", "22"], ["UDP", "161"], ["TCP", "443"], ["ICMP", "ping"], ["SSL", "443"]],
+                    "dst": [["UDP", "162"], ["UDP", "514"], ["TCP", "514"]],
+                    "custom": false
+                },
+                "exporter_gateway": {
+                    "src": [["UDP", "161"], ["TCP", "22"], ["ICMP", "ping"]],
+                    "dst": [["UDP", "162"]],
+                    "custom": false
+                },
+                "exporter_ams": {
+                    "src": [["TCP", "22"], ["UDP", "161"], ["TCP", "8443"], ["ICMP", "ping"], ["SSL", "8443"]],
+                    "dst": [["UDP", "514"], ["TCP", "514"]],
+                    "custom": false
+                },
+                "exporter_sm": {
+                    "src": [["TCP", "22"], ["ICMP", "ping"]],
+                    "dst": [["UDP", "162"]],
+                    "custom": false
+                },
+                "exporter_avayasbc": {
+                    "src": [["TCP", "22"], ["TCP", "222"], ["UDP", "161"], ["TCP", "443"], ["ICMP", "ping"], ["SSL", "443"]],
+                    "dst": [["UDP", "162"], ["UDP", "514"], ["TCP", "514"]],
+                    "custom": false
+                },
+                "exporter_aaep": {
+                    "src": [["TCP", "22"], ["TCP", "5432"], ["UDP", "161"], ["TCP", "443"], ["ICMP", "ping"], ["SSL", "443"]],
+                    "dst": [["UDP", "162"], ["UDP", "514"], ["TCP", "514"]],
+                    "custom": false
+                },
+                "exporter_mpp": {
+                    "src": [["TCP", "22"], ["ICMP", "ping"]],
+                    "dst": [],
+                    "custom": false
+                },
+                "exporter_windows": {
+                    "src": [["TCP", "9182"], ["ICMP", "ping"]],
+                    "dst": [["UDP", "514"], ["TCP", "514"]],
+                    "custom": false
+                },
+                "exporter_linux": {
+                    "src": [["TCP", "22"], ["ICMP", "ping"]],
+                    "dst": [],
+                    "custom": false
+                },
+                "exporter_ipo": {
+                    "src": [["TCP", "22"], ["TCP", "443"], ["UDP", "161"]],
+                    "dst": [["UDP", "162"], ["UDP", "514"], ["TCP", "514"]],
+                    "custom": false
+                },
+                "exporter_iq": {
+                    "src": [["TCP", "22"], ["TCP", "443"], ["ICMP", "ping"]],
+                    "dst": [],
+                    "custom": false
+                },
+                "exporter_weblm": {
+                    "src": [["TCP", "22"], ["TCP", "443"], ["TCP", "52233"], ["ICMP", "ping"], ["SSL", "443"], ["SSL", "52233"]],
+                    "dst": [],
+                    "custom": false
+                },
+                "exporter_aacc": {
+                    "src": [["TCP", "9182"], ["TCP", "8443"], ["ICMP", "ping"], ["SSL", "443"]],
+                    "dst": [["UDP", "514"], ["TCP", "514"]],
+                    "custom": false
+                },
+                "exporter_wfodb": {
+                    "src": [["TCP", "1433"], ["TCP", "9182"], ["ICMP", "ping"]],
+                    "dst": [["UDP", "514"], ["TCP", "514"]],
+                    "custom": false
+                },
+                "exporter_verint": {
+                    "src": [["TCP", "9182"], ["ICMP", "ping"], ["TCP", "8443"], ["ICMP", "ping"], ["SSL", "8443"]],
+                    "dst": [["UDP", "514"], ["TCP", "514"]],
+                    "custom": false
+                },
+                "exporter_network": {
+                    "src": [["UDP", "161"], ["ICMP", "ping"]],
+                    "dst": [["UDP", "162"], ["UDP", "514"], ["TCP", "514"]],
+                    "custom": false
+                },
+                "exporter_tcti": {
+                    "src": [["TCP", "8080"], ["ICMP", "ping"]],
+                    "dst": [["UDP", "514"], ["TCP", "514"]],
+                    "custom": false
+                },
+                "exporter_callback": {
+                    "src": [["TCP", "1433"], ["ICMP", "ping"]],
+                    "dst": [["UDP", "514"], ["TCP", "514"]],
+                    "custom": false
+                },
+                "exporter_nuancelm": {
+                    "src": [["TCP", "9182"], ["TCP", "27000"], ["ICMP", "ping"]],
+                    "dst": [["UDP", "514"], ["TCP", "514"]],
+                    "custom": false
+                },
+                "exporter_jmx": {
+                    "src": [["TCP", "7080"], ["ICMP", "ping"]],
+                    "dst": [],
+                    "custom": false
+                },
+                "exporter_breeze": {
+                    "src": [["TCP", "22"], ["ICMP", "ping"], ["SSL", "443"]],
+                    "dst": [["UDP", "162"], ["UDP", "514"], ["TCP", "514"]],
+                    "custom": false
+                },
+                "exporter_acm": {
+                    "src": [["TCP", "22"], ["TCP", "5022"], ["TCP", "443"], ["UDP", "161"], ["ICMP", "ping"], ["SSL", "443"]],
+                    "dst": [["UDP", "514"], ["TCP", "514"], ["UDP", "162"]],
+                    "custom": false
+                },
+                "exporter_vmware": {
+                    "src": [["TCP", "22"], ["ICMP", "ping"], ["TCP", "443"]],
+                    "dst": [],
+                    "custom": false
+                },
+                "exporter_kafka": {
+                    "src": [["TCP", "9092"]],
+                    "dst": [],
+                    "custom": false
+                },
+                "exporter_drac": {
+                    "src": [["TCP", "22"], ["ICMP", "ping"], ["UDP", "161"]],
+                    "dst": [["UDP", "162"], ["UDP", "514"], ["TCP", "514"]],
+                    "custom": false
+                },
+                "exporter_pfsense": {
+                    "src": [["TCP", "22"], ["ICMP", "ping"], ["UDP", "161"]],
+                    "dst": [["UDP", "162"], ["UDP", "514"], ["TCP", "514"]],
+                    "custom": false
+                },
+                "exporter_aic": {
+                    "src": [["TCP", "9183"], ["ICMP", "ping"], ["SSL", "443"]],
+                    "dst": [["UDP", "514"], ["TCP", "514"]],
+                    "custom": false
+                },
+                "exporter_voiceportal": {
+                    "src": [["TCP", "5432"], ["ICMP", "ping"], ["TCP", "443"], ["TCP", "22"]],
+                    "dst": [],
+                    "custom": false
+                },
+                "exporter_aam": {
+                    "src": [["ICMP", "ping"], ["TCP", "8443"], ["TCP", "22"], ["UDP", "161"], ["SSL", "8443"]],
+                    "dst": [["UDP", "514"], ["TCP", "514"], ["UDP", "162"]],
+                    "custom": false
+                },
+                "exporter_pc5": {
+                    "src": [["ICMP", "ping"], ["TCP", "22"]],
+                    "dst": [],
+                    "custom": false
+                },
+                "exporter_audiocodes": {
+                    "src": [["ICMP", "ping"], ["TCP", "22"], ["UDP", "161"], ["SSL", "443"]],
+                    "dst": [["UDP", "514"], ["TCP", "514"], ["UDP", "162"], ["SSL", "443"]],
+                    "custom": false
+                },
+                "exporter_redis": {
+                    "src": [["TCP", "6379"]],
+                    "dst": [],
+                    "custom": false
+                }
+            };
+            
+            // Attempt to fetch the complete built-in port mappings from the server
+            let fetchSuccessful = false;
+            try {
+                const xhr = new XMLHttpRequest();
+                // Using async with a longer timeout for better user experience
+                xhr.open('GET', '/api/port_mappings', true);
+                xhr.timeout = 2000; // 2 second timeout
+                
+                xhr.onload = function() {
+                    if (xhr.status === 200) {
+                        try {
+                            const serverMappings = JSON.parse(xhr.responseText);
+                            
+                            // Convert server mappings to client format and mark as built-in
+                            for (const [exporterName, mapping] of Object.entries(serverMappings)) {
+                                builtInMappings[exporterName] = {
+                                    src: mapping.src.map(entry => Array.isArray(entry) ? entry : [entry[0], entry[1]]),
+                                    dst: mapping.dst.map(entry => Array.isArray(entry) ? entry : [entry[0], entry[1]]),
+                                    custom: false
+                                };
+                            }
+                            fetchSuccessful = true;
+                            
+                            // Now render the mappings since the XHR is complete
+                            renderPortMappings(builtInMappings);
+                        } catch (parseError) {
+                            console.error('Error parsing server mappings:', parseError);
+                            renderPortMappings(builtInMappings);
+                        }
+                    } else {
+                        console.warn('Failed to fetch built-in port mappings from server, using defaults');
+                        renderPortMappings(builtInMappings);
+                    }
+                };
+                
+                xhr.onerror = function() {
+                    console.error('XHR error when fetching port mappings');
+                    renderPortMappings(builtInMappings);
+                };
+                
+                xhr.ontimeout = function() {
+                    console.warn('Timeout while fetching port mappings, using defaults');
+                    renderPortMappings(builtInMappings);
+                };
+                
+                xhr.send();
+                
+                // If we're using async XHR, return here as renderPortMappings will be called in callbacks
+                return;
+                
+            } catch (error) {
+                console.error('Error setting up port mappings fetch:', error);
+                // Continue to rendering with default mappings
+            }
+            
+            // This will be called by renderPortMappings for synchronous execution
+            // or by the XHR callbacks for asynchronous execution
+            renderPortMappings(builtInMappings);
+        }
+        
+        // Function to render port mappings in the table
+        function renderPortMappings(builtInMappings) {
+            // Get custom mappings from local storage
+            let customMappings = {};
+            try {
+                const storedMappings = localStorage.getItem('customPortMappings');
+                if (storedMappings) {
+                    customMappings = JSON.parse(storedMappings);
+                    // Mark all loaded mappings as custom
+                    Object.keys(customMappings).forEach(key => {
+                        customMappings[key].custom = true;
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading custom mappings:', error);
+            }
+            
+            // Combine built-in and custom mappings
+            const allMappings = {...builtInMappings, ...customMappings};
+            
+            // Clear the loading row
+            const tableBody = document.getElementById('port-mappings-body');
+            tableBody.innerHTML = '';
+            
+            // Sort exporters with custom ones first, then alphabetically
+            const sortedExporterNames = Object.keys(allMappings).sort((a, b) => {
+                const aIsCustom = allMappings[a].custom || false;
+                const bIsCustom = allMappings[b].custom || false;
+                
+                // If one is custom and the other isn't, custom ones come first
+                if (aIsCustom && !bIsCustom) return -1;
+                if (!aIsCustom && bIsCustom) return 1;
+                
+                // Otherwise sort alphabetically
+                return a.localeCompare(b);
+            });
+            
+            // Populate the table with all mappings
+            sortedExporterNames.forEach(exporterName => {
+                const mapping = allMappings[exporterName];
+                const isCustom = mapping.custom || false;
+                
+                // Format src ports (to target)
+                const toTargetPorts = mapping.src.map(portEntry => {
+                    return `${portEntry[0]} ${portEntry[1]}`;
+                }).join(', ');
+                
+                // Format dst ports (from target)
+                const fromTargetPorts = mapping.dst.map(portEntry => {
+                    return `${portEntry[0]} ${portEntry[1]}`;
+                }).join(', ');
+                
+                // Create a new row
+                const row = document.createElement('tr');
+                
+                // Add cells
+                row.innerHTML = `
+                    <td>${exporterName}</td>
+                    <td>${toTargetPorts || '<em>None</em>'}</td>
+                    <td>${fromTargetPorts || '<em>None</em>'}</td>
+                    <td><span class="custom-badge ${isCustom ? 'badge-yes' : 'badge-no'}">${isCustom ? 'Yes' : 'No'}</span></td>
+                    <td>
+                        ${isCustom ? `<button type="button" class="action-button delete" data-exporter="${exporterName}">Delete</button>` : ''}
+                    </td>
+                `;
+                
+                // Add the row to the table
+                tableBody.appendChild(row);
+            });
+            
+            // Add event listeners to delete buttons
+            document.querySelectorAll('.action-button.delete').forEach(button => {
+                button.addEventListener('click', function() {
+                    const exporterName = this.getAttribute('data-exporter');
+                    deleteCustomExporter(exporterName);
+                });
+            });
+        }
+        
+        // Function to validate and add a new exporter
+        function addNewExporter() {
+            // Get form values
+            const exporterNameInput = document.getElementById('new-exporter-name');
+            const toTargetInput = document.getElementById('new-to-target');
+            const fromTargetInput = document.getElementById('new-from-target');
+            
+            const exporterName = exporterNameInput.value.trim();
+            const toTarget = toTargetInput.value.trim();
+            const fromTarget = fromTargetInput.value.trim();
+            
+            // Validate inputs
+            if (!exporterName) {
+                alert('Please enter an exporter name');
+                exporterNameInput.focus();
+                return;
+            }
+            
+            if (!toTarget) {
+                alert('Please enter at least one "To Target" port');
+                toTargetInput.focus();
+                return;
+            }
+            
+            // Validate exporter name format
+            if (!/^[a-zA-Z0-9_-]+$/.test(exporterName)) {
+                alert('Exporter name must contain only letters, numbers, underscores, and hyphens');
+                exporterNameInput.focus();
+                return;
+            }
+            
+            // Validate port formats
+            if (!/^[0-9,]+$/.test(toTarget)) {
+                alert('To Target ports must be comma-separated numbers');
+                toTargetInput.focus();
+                return;
+            }
+            
+            if (fromTarget && !/^[0-9,]+$/.test(fromTarget)) {
+                alert('From Target ports must be comma-separated numbers');
+                fromTargetInput.focus();
+                return;
+            }
+            
+            // Get existing custom mappings from local storage
+            let customMappings = {};
+            try {
+                const storedMappings = localStorage.getItem('customPortMappings');
+                if (storedMappings) {
+                    customMappings = JSON.parse(storedMappings);
+                }
+            } catch (error) {
+                console.error('Error loading custom mappings:', error);
+            }
+            
+            // Check if exporter name already exists
+            if (customMappings[exporterName]) {
+                if (!confirm(`An exporter named "${exporterName}" already exists. Do you want to replace it?`)) {
+                    return;
+                }
+            }
+            
+            // Parse to target ports
+            const toTargetPorts = toTarget.split(',').map(port => {
+                return ['TCP', port.trim()];
+            });
+            
+            // Parse from target ports (if any)
+            const fromTargetPorts = fromTarget ? fromTarget.split(',').map(port => {
+                return ['TCP', port.trim()];
+            }) : [];
+            
+            // Create the new exporter mapping
+            customMappings[exporterName] = {
+                src: toTargetPorts,
+                dst: fromTargetPorts,
+                custom: true
+            };
+            
+            // Save to local storage
+            try {
+                localStorage.setItem('customPortMappings', JSON.stringify(customMappings));
+                
+                // Clear form inputs
+                exporterNameInput.value = '';
+                toTargetInput.value = '';
+                fromTargetInput.value = '';
+                
+                // Get the current built-in mappings
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', '/api/port_mappings', false); // Synchronous for simplicity
+                xhr.send();
+                
+                // Reload the port mappings table (either with server data or default mappings)
+                if (xhr.status === 200) {
+                    const serverMappings = JSON.parse(xhr.responseText);
+                    // Convert to client format
+                    let currentBuiltInMappings = {};
+                    for (const [exporterName, mapping] of Object.entries(serverMappings)) {
+                        currentBuiltInMappings[exporterName] = {
+                            src: mapping.src.map(entry => Array.isArray(entry) ? entry : [entry[0], entry[1]]),
+                            dst: mapping.dst.map(entry => Array.isArray(entry) ? entry : [entry[0], entry[1]]),
+                            custom: false
+                        };
+                    }
+                    renderPortMappings(currentBuiltInMappings);
+                } else {
+                    // If server request fails, reload port mappings which will use defaults
+                    loadPortMappings();
+                }
+                
+                // Show success message
+                alert(`Exporter "${exporterName}" has been added successfully!`);
+            } catch (error) {
+                console.error('Error saving custom mappings:', error);
+                alert('Error saving exporter: ' + error.message);
+            }
+        }
+        
+        // Function to delete a custom exporter
+        function deleteCustomExporter(exporterName) {
+            if (!confirm(`Are you sure you want to delete the custom exporter "${exporterName}"?`)) {
+                return;
+            }
+            
+            // Get existing custom mappings from local storage
+            let customMappings = {};
+            try {
+                const storedMappings = localStorage.getItem('customPortMappings');
+                if (storedMappings) {
+                    customMappings = JSON.parse(storedMappings);
+                }
+            } catch (error) {
+                console.error('Error loading custom mappings:', error);
+            }
+            
+            // Remove the exporter
+            if (customMappings[exporterName]) {
+                delete customMappings[exporterName];
+                
+                // Save back to local storage
+                localStorage.setItem('customPortMappings', JSON.stringify(customMappings));
+                
+                // Reload port mappings
+                loadPortMappings();
+                
+                // Show success message
+                alert(`Exporter "${exporterName}" has been deleted.`);
+            } else {
+                alert(`Exporter "${exporterName}" not found in custom mappings.`);
+            }
         }
     </script>
 </body>
