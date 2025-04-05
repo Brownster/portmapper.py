@@ -1285,6 +1285,9 @@ def port_mappings_api():
         except Exception as e:
             logger.error(f"Error saving custom port mappings: {e}")
             return jsonify({"status": "error", "message": str(e)}), 400
+    
+    # Default response for methods other than GET or POST
+    return jsonify({"status": "error", "message": "Method not allowed"}), 405
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
