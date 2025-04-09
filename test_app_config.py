@@ -7,7 +7,7 @@ import tempfile
 import pytest
 import yaml
 from flask import session
-from app import app, create_port_csv
+from app import app, create_port_csv, PORT_MAPPINGS, COLUMN_MAPPINGS
 
 @pytest.fixture
 def client():
@@ -60,12 +60,8 @@ server1.example.com,192.168.1.10,exporter_test
 def test_app_loads_config():
     """Test that the application loads the configuration at startup."""
     # Check that the app configuration is available
-    # Since this test doesn't modify globals, it should be safe
     
-    # Import PORT_MAPPINGS and COLUMN_MAPPINGS inside the test function
-    from app import PORT_MAPPINGS, COLUMN_MAPPINGS
-    
-    # Check that both are populated
+    # Check that both global configs are populated
     assert PORT_MAPPINGS is not None
     assert isinstance(PORT_MAPPINGS, dict)
     
@@ -94,9 +90,6 @@ def test_port_mappings_api(client):
 
 def test_column_mappings_in_config():
     """Test the column mappings from the configuration."""
-    # Import COLUMN_MAPPINGS inside the test function
-    from app import COLUMN_MAPPINGS
-    
     # Check if we have any mappings
     assert COLUMN_MAPPINGS is not None
     assert isinstance(COLUMN_MAPPINGS, dict)
