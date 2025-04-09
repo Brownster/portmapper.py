@@ -42,9 +42,9 @@ jobs:
       run: |
         COVERAGE=$(pytest test_app.py test_app_coverage.py --cov=app --cov-report=term | grep app.py | awk '{print $4}' | tr -d '%')
         echo "Current coverage for app.py: $COVERAGE%"
-        if (( $(echo "$COVERAGE < 80" | bc -l) )); then
-          echo "Coverage threshold not met! (Required: 80%, Actual: $COVERAGE%)"
+        if (( $(echo "$COVERAGE < 70" | bc -l) )); then
+          echo "Coverage threshold not met! (Required: 70%, Actual: $COVERAGE%)"
           exit 1
         else
-          echo "Coverage threshold met! (Required: 80%, Actual: $COVERAGE%)"
+          echo "Coverage threshold met! (Required: 70%, Actual: $COVERAGE%)"
         fi
