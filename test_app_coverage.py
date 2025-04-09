@@ -3,6 +3,7 @@ Additional tests to improve test coverage for the Flask application.
 """
 import os
 import io
+import json
 import yaml
 import tempfile
 import time
@@ -125,7 +126,6 @@ def test_port_mappings_api_get(client):
     assert response.status_code == 200
     
     # Check that the response is valid JSON and contains port mappings
-    import json
     data = json.loads(response.data)
     assert isinstance(data, dict)
     
