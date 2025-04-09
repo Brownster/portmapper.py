@@ -221,14 +221,14 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
         ])
         
         # Process the data rows
-        for row in data_rows:
-            if len(row) <= max(fqdn_index, ip_index):
+        for data_row in data_rows:
+            if len(data_row) <= max(fqdn_index, ip_index):
                 # Skip rows that don't have enough columns
                 continue
                 
             # Get FQDN and IP
-            target_fqdn = row[fqdn_index].strip()
-            ip = row[ip_index].strip()
+            target_fqdn = data_row[fqdn_index].strip()
+            ip = data_row[ip_index].strip()
             
             if not target_fqdn:
                 logger.warning(f"Skipping row with missing FQDN")
@@ -265,8 +265,8 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             
             # Find the header row
             header_row = None
-            for i, row in enumerate(all_rows[:min(10, len(all_rows))]):
-                if any('FQDN' in str(cell).upper() for cell in row):
+            for i, header_candidate_row in enumerate(all_rows[:min(10, len(all_rows))]):
+                if any('FQDN' in str(cell).upper() for cell in header_candidate_row):
                     header_row = i
                     break
             
@@ -296,38 +296,38 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
                         ssl_idx = i
                 
                 # Search for this hostname in the data rows
-                for row in all_rows[header_row + 1:]:
-                    if len(row) <= fqdn_idx:
+                for search_row in all_rows[header_row + 1:]:
+                    if len(search_row) <= fqdn_idx:
                         continue
                     
-                    if row[fqdn_idx].strip() == target_fqdn:
+                    if search_row[fqdn_idx].strip() == target_fqdn:
                         # Check SSH Banner
-                        if ssh_banner_idx is not None and ssh_banner_idx < len(row):
-                            value = row[ssh_banner_idx].strip().lower()
+                        if ssh_banner_idx is not None and ssh_banner_idx < len(search_row):
+                            value = search_row[ssh_banner_idx].strip().lower()
                             if value in ('1', 'true', 'yes', 'y', 't'):
                                 has_ssh_banner = True
                         
                         # Check TCP Connect
-                        if tcp_connect_idx is not None and tcp_connect_idx < len(row):
-                            value = row[tcp_connect_idx].strip().lower()
+                        if tcp_connect_idx is not None and tcp_connect_idx < len(search_row):
+                            value = search_row[tcp_connect_idx].strip().lower()
                             if value in ('1', 'true', 'yes', 'y', 't'):
                                 has_tcp_connect = True
                         
                         # Check TCP Port
-                        if tcp_port_idx is not None and tcp_port_idx < len(row):
-                            value = row[tcp_port_idx].strip()
+                        if tcp_port_idx is not None and tcp_port_idx < len(search_row):
+                            value = search_row[tcp_port_idx].strip()
                             if value and value not in ('0', 'false', 'no', 'n', ''):
                                 tcp_port_value = value
                         
                         # Check SNMP
-                        if snmp_idx is not None and snmp_idx < len(row):
-                            value = row[snmp_idx].strip().lower()
+                        if snmp_idx is not None and snmp_idx < len(search_row):
+                            value = search_row[snmp_idx].strip().lower()
                             if value in ('1', 'true', 'yes', 'y', 't'):
                                 has_snmp = True
                         
                         # Check SSL
-                        if ssl_idx is not None and ssl_idx < len(row):
-                            value = row[ssl_idx].strip().lower()
+                        if ssl_idx is not None and ssl_idx < len(search_row):
+                            value = search_row[ssl_idx].strip().lower()
                             if value in ('1', 'true', 'yes', 'y', 't'):
                                 has_ssl = True
                         
@@ -400,8 +400,8 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             # Collect all exporter names using the column mappings configuration
             exporters = []
             
-            # Use the current data row for processing
-            # No need to store it in a new variable as we're already in the data row loop
+            # Access the data_row from the outer loop for exporter detection
+            # This processes the current row we're on in the outer data_rows loop
             
             # First try using the column mappings from the configuration
             for exporter_name, config in COLUMN_MAPPINGS.items():
@@ -416,20 +416,20 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
                 # Check each column name
                 for col_name in column_names:
                     for i, header in enumerate(headers):
-                        if i >= len(row):
+                        if i >= len(data_row):
                             continue
                         # Case-insensitive comparison
-                        if col_name.upper() == str(header).upper() and row[i].strip():
-                            exporters.append(row[i].strip())
+                        if col_name.upper() == str(header).upper() and data_row[i].strip():
+                            exporters.append(data_row[i].strip())
             
             # If no exporters found using column mappings, fall back to generic approach
             if not exporters:
                 logger.info(f"No exporters found using column mappings for {target_fqdn}, using fallback method")
                 for i, header in enumerate(headers):
-                    if i >= len(row):
+                    if i >= len(data_row):
                         continue
-                    if 'EXPORTER' in str(header).upper() and row[i].strip():
-                        exporters.append(row[i].strip())
+                    if 'EXPORTER' in str(header).upper() and data_row[i].strip():
+                        exporters.append(data_row[i].strip())
 
             # Process each exporter
             for exporter in exporters:
