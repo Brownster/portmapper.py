@@ -231,11 +231,13 @@ This guide provides solutions to common issues encountered when working with the
 - Missing dependencies
 - Code changes breaking tests
 - Environment differences
+- Missing test files (`test_app_coverage.py` not found)
 
 **Solutions**:
 1. Install all dependencies from requirements.txt
 2. Update tests to match code changes
 3. Check for environment-specific paths or settings
+4. Ensure all test files are committed to the repository
 
 ### Issue: Linting Errors
 
@@ -245,11 +247,16 @@ This guide provides solutions to common issues encountered when working with the
 - Code style violations
 - New Python version with stricter rules
 - Custom pylint config
+- Variable shadowing in nested loops (undefined loop variable)
 
 **Solutions**:
 1. Run `pylint $(git ls-files '*.py')` to see all errors
 2. Fix style issues according to PEP 8
 3. Update .pylintrc if needed for project-specific rules
+4. For undefined loop variable errors:
+   - Use different variable names in nested loops (e.g., `data_row`, `search_row`)
+   - Avoid reusing the same variable name in different loop scopes
+   - Be careful with nested loops that reference outer loop variables
 
 ## Common Error Messages and Solutions
 

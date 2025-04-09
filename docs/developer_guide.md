@@ -306,6 +306,18 @@ The project follows these style guidelines:
 - Docstrings for all functions and classes
 - Detailed comments for complex logic
 
+#### Naming Conventions for Loops
+
+Special care should be taken with loop variables to avoid shadowing:
+
+- Use descriptive names for loop variables based on the data being processed
+- In nested loops, ensure each loop variable has a unique name:
+  - Main data loop: `data_row`
+  - Header detection: `header_candidate_row`
+  - Search operations: `search_row`
+- Avoid using generic names like `row` which could be ambiguous
+- If a loop variable will be referenced in a nested scope, give it a distinctive name
+
 ## Deployment
 
 ### Docker Deployment
