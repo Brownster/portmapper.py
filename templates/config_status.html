@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration Status - Portmapper</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-image: url('{{ url_for('static', filename='background.png') }}');
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-attachment: fixed;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            margin-top: 0;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            font-size: 20px;
+            color: #2980b9;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 8px;
+        }
+
+        .info-card {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2980b9;
+        }
+
+        .info-item {
+            margin-bottom: 5px;
+            display: flex;
+        }
+
+        .info-label {
+            font-weight: bold;
+            min-width: 180px;
+        }
+
+        .status-ok {
+            color: #27ae60;
+            font-weight: bold;
+        }
+
+        .status-error {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .mappings-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+
+        .mappings-table th {
+            background-color: #2980b9;
+            color: white;
+            text-align: left;
+            padding: 10px;
+        }
+
+        .mappings-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .mappings-table tr:nth-child(even) {
+            background-color: #f5f5f5;
+        }
+
+        .port-list {
+            padding-left: 20px;
+            margin: 5px 0;
+        }
+
+        .port-item {
+            margin-bottom: 3px;
+        }
+
+        .expandable {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .expandable::before {
+            content: "▶";
+            display: inline-block;
+            margin-right: 5px;
+            transition: transform 0.2s;
+        }
+
+        .expandable.expanded::before {
+            transform: rotate(90deg);
+        }
+
+        .expandable-content {
+            display: none;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .expandable.expanded + .expandable-content {
+            display: block;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #2980b9;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .btn:hover {
+            background-color: #3498db;
+        }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Configuration Status</h1>
+            <p>Details about the current port mapping configuration</p>
+        </div>
+
+        <div class="section">
+            <h2>Configuration Overview</h2>
+            <div class="info-card">
+                <div class="info-item">
+                    <span class="info-label">Configuration Status:</span>
+                    {% if config_info.loaded %}
+                    <span class="status-ok">Loaded successfully</span>
+                    {% else %}
+                    <span class="status-error">Failed to load</span>
+                    {% endif %}
+                </div>
+                
+                {% if not config_info.loaded %}
+                <div class="info-item">
+                    <span class="info-label">Error:</span>
+                    <span class="status-error">{{ config_info.error }}</span>
+                </div>
+                {% endif %}
+                
+                <div class="info-item">
+                    <span class="info-label">Port Mappings:</span>
+                    <span>{{ config_info.port_mappings_count }} exporters configured</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Column Mappings:</span>
+                    <span>{{ config_info.column_mappings_count }} exporters mapped to columns</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Configured Exporters</h2>
+            {% if config_info.exporters %}
+            <p>The following exporters are configured in the system:</p>
+            <div class="expandable" onclick="this.classList.toggle('expanded')">Show/Hide Exporter List</div>
+            <div class="expandable-content">
+                <ul>
+                    {% for exporter in config_info.exporters %}
+                    <li>{{ exporter }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% else %}
+            <p class="status-error">No exporters found in configuration. The application will use minimal built-in defaults.</p>
+            {% endif %}
+        </div>
+
+        <div class="section">
+            <h2>Port Mappings</h2>
+            {% if port_mappings %}
+            <p>The following port mappings are defined:</p>
+            <div class="expandable" onclick="this.classList.toggle('expanded')">Show/Hide Port Mappings</div>
+            <div class="expandable-content">
+                <table class="mappings-table">
+                    <thead>
+                        <tr>
+                            <th>Exporter</th>
+                            <th>To Target Ports</th>
+                            <th>From Target Ports</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for exporter, mapping in port_mappings.items() %}
+                        <tr>
+                            <td>{{ exporter }}</td>
+                            <td>
+                                {% if mapping.src %}
+                                <ul class="port-list">
+                                    {% for protocol, port in mapping.src %}
+                                    <li class="port-item">{{ protocol }} {{ port }}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                <em>None</em>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if mapping.dst %}
+                                <ul class="port-list">
+                                    {% for protocol, port in mapping.dst %}
+                                    <li class="port-item">{{ protocol }} {{ port }}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                <em>None</em>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="status-error">No port mappings defined in configuration.</p>
+            {% endif %}
+        </div>
+
+        <div class="section">
+            <h2>Column Mappings</h2>
+            {% if column_mappings %}
+            <p>The following column mappings are defined:</p>
+            <div class="expandable" onclick="this.classList.toggle('expanded')">Show/Hide Column Mappings</div>
+            <div class="expandable-content">
+                <table class="mappings-table">
+                    <thead>
+                        <tr>
+                            <th>Exporter</th>
+                            <th>Column Names</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for exporter, mapping in column_mappings.items() %}
+                        <tr>
+                            <td>{{ exporter }}</td>
+                            <td>
+                                {% if mapping.column_name %}
+                                {{ mapping.column_name }}
+                                {% elif mapping.column_names %}
+                                <ul class="port-list">
+                                    {% for col in mapping.column_names %}
+                                    <li class="port-item">{{ col }}</li>
+                                    {% endfor %}
+                                </ul>
+                                {% else %}
+                                <em>None</em>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="status-error">No column mappings defined in configuration.</p>
+            {% endif %}
+        </div>
+
+        <div class="section">
+            <h2>Configuration Help</h2>
+            <p>To use a custom configuration file:</p>
+            <pre>export PORT_CONFIG=/path/to/your/custom_config.yaml
+python app.py</pre>
+            
+            <p>With Docker:</p>
+            <pre>docker run -p 5000:5000 -v /path/to/your/custom_config.yaml:/app/port_config.yaml brownster/portmapper:latest</pre>
+            
+            <p>Standard configuration locations searched:</p>
+            <ul>
+                <li>Current directory: <code>./port_config.yaml</code></li>
+                <li>User config: <code>~/.config/portmapper/config.yaml</code></li>
+                <li>System config: <code>/etc/portmapper/config.yaml</code></li>
+            </ul>
+            
+            <p>You can also <a href="{{ url_for('export_config') }}" class="btn" style="display: inline-block; margin-top: 10px;">Export Current Configuration</a> to create your own customized configuration file.</p>
+        </div>
+
+        <a href="{{ url_for('upload_csv') }}" class="btn back-link">Back to Home</a>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initially expand the first section if there's an error
+            {% if not config_info.loaded %}
+            document.querySelector('.expandable').classList.add('expanded');
+            document.querySelector('.expandable-content').style.display = 'block';
+            {% endif %}
+        });
+    </script>
+</body>
+</html>
