@@ -5,12 +5,11 @@ import os
 import io
 import csv
 import json
-import yaml
-import pytest
 import tempfile
 import time
-from unittest.mock import patch, MagicMock
-from flask import session
+from unittest.mock import patch
+import yaml
+import pytest
 from app import app, cleanup_old_files
 
 @pytest.fixture
@@ -148,7 +147,7 @@ def test_exporter_specific_port_configs(client):
         f.write(response.data)
     
     # Verify that the custom ports are used in the output
-    with open(output_path, 'r') as f:
+    with open(output_path, 'r', encoding='utf-8') as f:
         reader = csv.reader(f)
         next(reader)  # Skip header
         rows = list(reader)
@@ -201,7 +200,7 @@ def test_blackbox_monitor_port_config(client, monitor_type, port_field, expected
         f.write(response.data)
     
     # Verify that the custom port is used in the output
-    with open(output_path, 'r') as f:
+    with open(output_path, 'r', encoding='utf-8') as f:
         reader = csv.reader(f)
         next(reader)  # Skip header
         rows = list(reader)
@@ -244,7 +243,7 @@ def test_custom_additional_ports(client):
         f.write(response.data)
     
     # Verify that the custom ports are used in the output
-    with open(output_path, 'r') as f:
+    with open(output_path, 'r', encoding='utf-8') as f:
         reader = csv.reader(f)
         next(reader)  # Skip header
         rows = list(reader)
@@ -325,7 +324,7 @@ def test_firewall_check_csv_generation(client):
         f.write(response.data)
     
     # Verify that the firewall check CSV has the expected format
-    with open(output_path, 'r') as f:
+    with open(output_path, 'r', encoding='utf-8') as f:
         reader = csv.reader(f)
         header = next(reader)
         rows = list(reader)
@@ -479,7 +478,7 @@ def test_generate_firewall_script(client):
 def test_download_check_script(client):
     """Test downloading the firewall check script."""
     # Create a dummy firewall_check.sh file first as it's required
-    with open('/home/marc/Documents/github/portmapper.py/firewall_check.sh', 'w') as f:
+    with open('/home/marc/Documents/github/portmapper.py/firewall_check.sh', 'w', encoding='utf-8') as f:
         f.write('#!/bin/bash\necho "Firewall connectivity check tool"\n')
     
     response = client.get('/download_check_script')
@@ -499,12 +498,12 @@ def test_cleanup_old_files():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a test file
         test_file = os.path.join(temp_dir, 'test_file.txt')
-        with open(test_file, 'w') as f:
+        with open(test_file, 'w', encoding='utf-8') as f:
             f.write('Test content')
         
         # Create a file that should be old enough to be deleted
         old_file = os.path.join(temp_dir, 'old_file.txt')
-        with open(old_file, 'w') as f:
+        with open(old_file, 'w', encoding='utf-8') as f:
             f.write('Old content')
         
         # Set the file's modification time to be old
