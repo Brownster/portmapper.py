@@ -13,6 +13,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
         
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -44,6 +47,17 @@ jobs:
           echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
           echo "Coverage percentage: $COVERAGE%"
           
+      - name: Determine badge color
+        id: badge_color
+        run: |
+          if (( $(echo "$COVERAGE >= 80" | bc -l) )); then
+            echo "BADGE_COLOR=green" >> $GITHUB_ENV
+          elif (( $(echo "$COVERAGE >= 70" | bc -l) )); then
+            echo "BADGE_COLOR=yellow" >> $GITHUB_ENV
+          else
+            echo "BADGE_COLOR=red" >> $GITHUB_ENV
+          fi
+          
       - name: Create the badge directory
         run: mkdir -p .github/badges
           
@@ -52,7 +66,7 @@ jobs:
         with:
           label: 'coverage'
           status: '${{ env.COVERAGE }}%'
-          color: ${{ env.COVERAGE >= 80 && 'green' || env.COVERAGE >= 70 && 'yellow' || 'red' }}
+          color: '${{ env.BADGE_COLOR }}'
           path: '.github/badges/coverage.svg'
           
       - name: Commit and push badge
