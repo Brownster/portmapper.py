@@ -7,9 +7,11 @@ import csv
 import json
 import yaml
 import pytest
+import tempfile
+import time
 from unittest.mock import patch, MagicMock
 from flask import session
-from app import app
+from app import app, cleanup_old_files
 
 @pytest.fixture
 def client():
@@ -18,7 +20,6 @@ def client():
     app.config['WTF_CSRF_ENABLED'] = False
     
     # Create a temporary directory for uploads
-    import tempfile
     with tempfile.TemporaryDirectory() as temp_dir:
         app.config['UPLOAD_FOLDER'] = temp_dir
         
@@ -494,10 +495,6 @@ def test_config_status_page(client):
 
 def test_cleanup_old_files():
     """Test the cleanup_old_files function."""
-    from app import cleanup_old_files
-    import tempfile
-    import time
-    
     # Create a temporary directory
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create a test file
