@@ -5,6 +5,7 @@ import os
 import io
 import csv
 import json
+import yaml
 import pytest
 import tempfile
 from flask import session
@@ -201,8 +202,12 @@ def test_firewall_check_csv_option(client):
 
 def test_download_check_script(client):
     """Test downloading the firewall check script."""
-    # Create the firewall_check.sh script in the app directory
-    script_path = os.path.join(os.path.dirname(os.path.abspath(app.root_path)), "firewall_check.sh")
+    # Create the scripts directory and firewall_check.sh script
+    scripts_dir = os.path.join(os.path.dirname(os.path.abspath(app.root_path)), "scripts")
+    if not os.path.exists(scripts_dir):
+        os.makedirs(scripts_dir)
+    
+    script_path = os.path.join(scripts_dir, "firewall_check.sh")
     
     try:
         # Create a dummy firewall_check.sh if it doesn't exist for testing purposes
@@ -367,6 +372,25 @@ def test_port_mappings_api_get(client):
     assert 'src' in data['exporter_linux']
     assert 'dst' in data['exporter_linux']
 
+def test_config_status_page(client):
+    """Test the configuration status page."""
+    # Access the config status page
+    response = client.get('/config_status')
+    
+    # Check the response
+    assert response.status_code == 200
+    
+    # Check that the page contains essential elements
+    assert b'Configuration Status' in response.data
+    assert b'Configuration Overview' in response.data
+    assert b'Port Mappings' in response.data
+    assert b'Column Mappings' in response.data
+    
+    # Check for configuration help section
+    assert b'Configuration Help' in response.data
+    assert b'export PORT_CONFIG=' in response.data
+    assert b'docker run -p 5000:5000 -v' in response.data
+
 def test_port_mappings_api_post(client):
     """Test the POST endpoint for setting custom port mappings."""
     # Create test data for custom port mappings
@@ -456,6 +480,67 @@ server1.example.com,192.168.1.10,exporter_custom,,,,,,
     assert has_port_8080, "Custom port 8080 not found in CSV output"
     assert has_port_9090, "Custom port 9090 not found in CSV output"
     assert has_port_7070, "Custom port 7070 not found in CSV output"
+
+def test_config_export_functionality(client):
+    """Test the configuration export functionality."""
+    # Add custom port mappings to the session
+    with client.session_transaction() as sess:
+        sess['custom_port_mappings'] = {
+            'exporter_custom': {
+                'src': [['TCP', '8080'], ['TCP', '9090']],
+                'dst': [['TCP', '7070']]
+            }
+        }
+    
+    # Access the export config endpoint
+    response = client.get('/export_config')
+    
+    # Check the response
+    assert response.status_code == 200
+    assert 'application/x-yaml' in response.headers.get('Content-Type', '')
+    assert 'attachment; filename=port_config.yaml' in response.headers.get('Content-Disposition', '')
+    
+    # Read and parse the YAML data
+    yaml_content = response.data.decode('utf-8')
+    config = yaml.safe_load(yaml_content)
+    
+    # Verify the YAML structure
+    assert 'port_mappings' in config
+    assert 'column_mappings' in config
+    
+    # Verify that the custom port mappings are included
+    assert 'exporter_custom' in config['port_mappings']
+    custom_mapping = config['port_mappings']['exporter_custom']
+    assert 'src' in custom_mapping
+    assert 'dst' in custom_mapping
+    
+    # Check specific port values
+    src_ports = custom_mapping['src']
+    dst_ports = custom_mapping['dst']
+    
+    # Check that our custom ports are in the exported config
+    assert ['TCP', '8080'] in src_ports
+    assert ['TCP', '9090'] in src_ports
+    assert ['TCP', '7070'] in dst_ports
+    
+    # Check that standard exporters are also included
+    assert any(key.startswith('exporter_') and key != 'exporter_custom' for key in config['port_mappings'].keys())
+    
+    # Check that column mappings are also exported
+    assert len(config['column_mappings']) > 0
+
+def test_export_config_link_in_config_status(client):
+    """Test that the config_status page contains a link to export config."""
+    # Access the config status page
+    response = client.get('/config_status')
+    
+    # Check that the page contains a link to export configuration
+    assert response.status_code == 200
+    assert b'export_config' in response.data or b'Export Configuration' in response.data
+    
+    # Parse the HTML to find the link
+    html_content = response.data.decode('utf-8')
+    assert 'href="/export_config"' in html_content
 
 if __name__ == "__main__":
     pytest.main()

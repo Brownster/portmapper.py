@@ -167,8 +167,12 @@ def test_process_without_file_path_in_session(client):
 
 def test_download_check_script(client):
     """Test downloading the firewall check script."""
-    # Create a dummy firewall_check.sh file in the app directory
-    script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "firewall_check.sh")
+    # Create the scripts directory and firewall_check.sh script
+    scripts_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts")
+    if not os.path.exists(scripts_dir):
+        os.makedirs(scripts_dir)
+    
+    script_path = os.path.join(scripts_dir, "firewall_check.sh")
     
     # Create the script file
     with open(script_path, 'w', encoding='utf-8') as f:

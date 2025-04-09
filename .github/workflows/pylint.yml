@@ -21,13 +21,14 @@ jobs:
         pip install pylint pytest PyYAML pandas pdfkit
         pip install -r requirements.txt
         
-    - name: Create firewall_check.sh script for testing
+    - name: Create scripts directory and firewall_check.sh script for testing
       run: |
-        touch firewall_check.sh
-        echo '#!/bin/bash' > firewall_check.sh
-        echo '# Test firewall check script' >> firewall_check.sh
-        echo 'echo "Firewall connectivity check tool"' >> firewall_check.sh
-        chmod +x firewall_check.sh
+        mkdir -p scripts
+        touch scripts/firewall_check.sh
+        echo '#!/bin/bash' > scripts/firewall_check.sh
+        echo '# Test firewall check script' >> scripts/firewall_check.sh
+        echo 'echo "Firewall connectivity check tool"' >> scripts/firewall_check.sh
+        chmod +x scripts/firewall_check.sh
         
     - name: Analyzing the code with pylint
       run: |
@@ -36,11 +37,11 @@ jobs:
     - name: Test with pytest and collect coverage
       run: |
         pip install pytest pytest-cov
-        pytest test_app.py test_app_coverage.py -v --cov=app --cov-report=term
+        pytest tests/test_app.py tests/test_app_coverage.py -v --cov=app --cov-report=term
         
     - name: Verify coverage meets threshold
       run: |
-        COVERAGE=$(pytest test_app.py test_app_coverage.py --cov=app --cov-report=term | grep app.py | awk '{print $4}' | tr -d '%')
+        COVERAGE=$(pytest tests/test_app.py tests/test_app_coverage.py --cov=app --cov-report=term | grep app.py | awk '{print $4}' | tr -d '%')
         echo "Current coverage for app.py: $COVERAGE%"
         if (( $(echo "$COVERAGE < 70" | bc -l) )); then
           echo "Coverage threshold not met! (Required: 70%, Actual: $COVERAGE%)"

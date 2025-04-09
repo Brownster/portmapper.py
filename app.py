@@ -1317,7 +1317,7 @@ def download_template():
 def download_check_script():
     """Provide the firewall check script for download."""
     try:
-        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "firewall_check.sh")
+        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "firewall_check.sh")
         
         # Check if the script exists
         if not os.path.exists(script_path):

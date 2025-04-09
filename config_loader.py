@@ -9,11 +9,13 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-# Default config path in the application directory
-DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'port_config.yaml')
+# Default config paths in the application directory
+DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config', 'port_config.yaml')
 
 # Standard config paths to check
 CONFIG_SEARCH_PATHS = [
+    # Config directory
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config', 'port_config.yaml'),
     # Current directory
     os.path.join(os.getcwd(), 'port_config.yaml'),
     # User config directory

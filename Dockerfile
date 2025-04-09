@@ -37,11 +37,15 @@ COPY . .
 # Create directory for temp files if it doesn't exist
 RUN mkdir -p /tmp/uploads && chmod 777 /tmp/uploads
 
+# Create necessary directories for the application
+RUN mkdir -p /app/config /app/scripts /app/tests
+
 # Set environment variables
 ENV UPLOAD_FOLDER=/tmp/uploads \
     PORT=5000 \
     FLASK_APP=app.py \
-    FLASK_ENV=production
+    FLASK_ENV=production \
+    PORT_CONFIG=/app/port_config.yaml
 
 # Make port 5000 available to the world outside this container
 EXPOSE 5000
