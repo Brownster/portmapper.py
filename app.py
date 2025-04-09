@@ -21,6 +21,17 @@ from config_loader import load_config, get_port_mappings, get_column_mappings, g
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', '123456789')  # Better to set via environment variable
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("app.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
 # Load configuration
 try:
     config_path = os.environ.get('PORT_CONFIG', None)
@@ -49,17 +60,6 @@ except Exception as e:
         'column_mappings_count': 0,
         'exporters': []
     }
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("app.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
 
 # Directory to store uploaded files temporarily
 UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', '/tmp/')
@@ -183,8 +183,8 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             raise ValueError("The provided CSV file is empty")
             
         # Look for the header row containing 'FQDN'
-        for i, row in enumerate(all_rows[:min(10, len(all_rows))]):
-            if any('FQDN' in str(cell).upper() for cell in row):
+        for i, header_candidate_row in enumerate(all_rows[:min(10, len(all_rows))]):
+            if any('FQDN' in str(cell).upper() for cell in header_candidate_row):
                 header_row = i
                 logger.info(f"Found header row at line {header_row + 1}")
                 break
@@ -400,6 +400,9 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             # Collect all exporter names using the column mappings configuration
             exporters = []
             
+            # Get the current data row being processed
+            current_row = row  # Store the current row to avoid undefined loop variable issues
+            
             # First try using the column mappings from the configuration
             for exporter_name, config in COLUMN_MAPPINGS.items():
                 column_names = []
@@ -413,20 +416,20 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
                 # Check each column name
                 for col_name in column_names:
                     for i, header in enumerate(headers):
-                        if i >= len(row):
+                        if i >= len(current_row):
                             continue
                         # Case-insensitive comparison
-                        if col_name.upper() == str(header).upper() and row[i].strip():
-                            exporters.append(row[i].strip())
+                        if col_name.upper() == str(header).upper() and current_row[i].strip():
+                            exporters.append(current_row[i].strip())
             
             # If no exporters found using column mappings, fall back to generic approach
             if not exporters:
                 logger.info(f"No exporters found using column mappings for {target_fqdn}, using fallback method")
                 for i, header in enumerate(headers):
-                    if i >= len(row):
+                    if i >= len(current_row):
                         continue
-                    if 'EXPORTER' in str(header).upper() and row[i].strip():
-                        exporters.append(row[i].strip())
+                    if 'EXPORTER' in str(header).upper() and current_row[i].strip():
+                        exporters.append(current_row[i].strip())
 
             # Process each exporter
             for exporter in exporters:

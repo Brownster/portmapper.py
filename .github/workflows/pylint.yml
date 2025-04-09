@@ -18,7 +18,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pylint pytest
+        pip install pylint pytest PyYAML pandas pdfkit
         pip install -r requirements.txt
         
     - name: Create firewall_check.sh script for testing
@@ -33,6 +33,18 @@ jobs:
       run: |
         pylint --disable=C0111,C0103,C0303,C0301,C0302,C0304,C0411,W1201,W1202,W1203,W1309,W1514,W0611,W0612,W0613,W0621,W0718,R0801,R0911,R0912,R0913,R0914,R0915,R0917,R1702,R1705 $(git ls-files '*.py')
         
-    - name: Test with pytest
+    - name: Test with pytest and collect coverage
       run: |
-        pytest test_app.py -v
+        pip install pytest pytest-cov
+        pytest test_app.py test_app_coverage.py -v --cov=app --cov-report=term
+        
+    - name: Verify coverage meets threshold
+      run: |
+        COVERAGE=$(pytest test_app.py test_app_coverage.py --cov=app --cov-report=term | grep app.py | awk '{print $4}' | tr -d '%')
+        echo "Current coverage for app.py: $COVERAGE%"
+        if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+          echo "Coverage threshold not met! (Required: 80%, Actual: $COVERAGE%)"
+          exit 1
+        else
+          echo "Coverage threshold met! (Required: 80%, Actual: $COVERAGE%)"
+        fi
