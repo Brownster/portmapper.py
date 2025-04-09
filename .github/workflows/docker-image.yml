@@ -38,7 +38,7 @@ jobs:
         
     - name: Test with pytest
       run: |
-        pytest tests/test_app.py tests/test_app_coverage.py -v
+        PYTHONPATH=$PWD pytest tests/test_app.py tests/test_app_coverage.py -v
         
   build:
     needs: test  # This job depends on the test job completing successfully
