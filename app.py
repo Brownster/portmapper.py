@@ -400,8 +400,8 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
             # Collect all exporter names using the column mappings configuration
             exporters = []
             
-            # Get the current data row being processed
-            current_row = row  # Store the current row to avoid undefined loop variable issues
+            # Use the current data row for processing
+            # No need to store it in a new variable as we're already in the data row loop
             
             # First try using the column mappings from the configuration
             for exporter_name, config in COLUMN_MAPPINGS.items():
@@ -416,20 +416,20 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
                 # Check each column name
                 for col_name in column_names:
                     for i, header in enumerate(headers):
-                        if i >= len(current_row):
+                        if i >= len(row):
                             continue
                         # Case-insensitive comparison
-                        if col_name.upper() == str(header).upper() and current_row[i].strip():
-                            exporters.append(current_row[i].strip())
+                        if col_name.upper() == str(header).upper() and row[i].strip():
+                            exporters.append(row[i].strip())
             
             # If no exporters found using column mappings, fall back to generic approach
             if not exporters:
                 logger.info(f"No exporters found using column mappings for {target_fqdn}, using fallback method")
                 for i, header in enumerate(headers):
-                    if i >= len(current_row):
+                    if i >= len(row):
                         continue
-                    if 'EXPORTER' in str(header).upper() and current_row[i].strip():
-                        exporters.append(current_row[i].strip())
+                    if 'EXPORTER' in str(header).upper() and row[i].strip():
+                        exporters.append(row[i].strip())
 
             # Process each exporter
             for exporter in exporters:
