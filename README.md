@@ -2,20 +2,25 @@
 
 [![Test, Build and Push Docker image](https://github.com/Brownster/portmapper.py/actions/workflows/docker-image.yml/badge.svg)](https://github.com/Brownster/portmapper.py/actions/workflows/docker-image.yml)
 [![Pylint & Testing](https://github.com/Brownster/portmapper.py/actions/workflows/pylint.yml/badge.svg)](https://github.com/Brownster/portmapper.py/actions/workflows/pylint.yml)
+[![Coverage](https://github.com/Brownster/portmapper.py/raw/main/.github/badges/coverage.svg)](https://github.com/Brownster/portmapper.py/actions/workflows/coverage-badge.yml)
 
 This Flask application automates the generation of firewall requests from uploaded CSV files. It parses specific network configurations from the CSV, matches them against a predefined set of exporter configurations, and outputs a new CSV with detailed firewall rules.
 
 ## Features
 
 - **CSV Upload**: Users can upload CSV files containing details about network endpoints.
-- **Rule Mapping**: Maps incoming and outgoing rules based on predefined configurations.
+- **Rule Mapping**: Maps incoming and outgoing rules based on configurations defined in YAML files.
 - **FQDN and IP Handling**: Handles both Fully Qualified Domain Names (FQDN) and IP addresses to specify sources and destinations.
 - **Secure File Handling**: Temporarily stores uploaded files in a secure manner and cleans up old files regularly.
 - **Edge Case Support**: Automatically detects and allows configuration of servers with special monitoring flags but no standard exporters.
 - **Smart Port Suggestions**: Suggests appropriate ports based on monitoring types (SSH Banner, TCP Connect, SNMP, SSL).
+- **Custom Port Configuration**: Allows customization of port mappings for all targets through an intuitive interface, not just edge cases.
+- **Exporter-Specific Port Settings**: Configure ports for specific exporters on a per-server basis.
+- **Blackbox Monitoring Fields**: Support for SSH-banner, TCP-connect, SNMP, and SSL monitoring with customizable ports.
 - **Multiple Output Formats**: Supports CSV, Excel, PDF, and firewall-specific formats (Cisco ASA, Juniper SRX, Palo Alto, iptables).
 - **Firewall Check Tool**: Generate a specialized CSV containing only monitoring-to-target entries and use the included shell script to verify port connectivity.
 - **User Feedback**: Provides user feedback via flash messages for file upload success or failure.
+- **Configurable Port Mappings**: Port mappings and column names are configurable via YAML configuration file, making it easy to adapt to different environments.
 
 ![image](https://github.com/user-attachments/assets/da18ab5d-61aa-47ce-ae8e-1635b3f2f884)
 
@@ -242,6 +247,55 @@ brew install wkhtmltopdf
 #### Windows:
 Download and install from the [official website](https://wkhtmltopdf.org/downloads.html)
 
+## Configuration
+
+The application now supports configuration via YAML files. The default configuration file is `port_config.yaml` in the root directory of the project.
+
+### Port Configuration
+
+Port mappings and column names are defined in the YAML configuration file:
+
+```yaml
+# Column mapping configuration
+column_mappings:
+  exporter_os:
+    column_name: "exporter_os"  # Single column to check
+  
+  exporter_avayasbc:
+    column_names:             # Multiple columns to check
+      - "exporter_app"
+      - "exporter_app_2"
+      - "exporter_app_3"
+
+# Port mapping configurations
+port_mappings:
+  exporter_linux:
+    src:  # Source (monitoring server) to target ports
+      - ["TCP", "22"]
+      - ["ICMP", "ping"]
+    dst:  # Destination (target) back to monitoring server ports
+      []
+  
+  exporter_windows:
+    src:
+      - ["TCP", "9182"]
+      - ["ICMP", "ping"]
+    dst:
+      - ["UDP", "514"]
+      - ["TCP", "514"]
+```
+
+You can customize this file to add new exporters or modify existing ones.
+
+### Custom Configuration File
+
+You can specify a custom configuration file using the `PORT_CONFIG` environment variable:
+
+```bash
+export PORT_CONFIG=/path/to/your/custom_config.yaml
+python app.py
+```
+
 ## Installation
 
 ### Option 1: Using Docker (Recommended)
@@ -254,6 +308,12 @@ docker pull brownster/portmapper:latest
 
 # Run the container
 docker run -p 5000:5000 brownster/portmapper:latest
+```
+
+To use a custom configuration with Docker, mount your config file:
+
+```bash
+docker run -p 5000:5000 -v /path/to/your/custom_config.yaml:/app/port_config.yaml brownster/portmapper:latest
 ```
 
 Then access the application at http://localhost:5000
@@ -329,7 +389,9 @@ This will start the Flask server on http://127.0.0.1:5000/, where you can access
 3. **Select Target Servers**:
    - The app displays a list of all servers found in the CSV
    - Servers identified as edge cases (with monitoring flags but no exporters) will be highlighted
-   - For edge case servers, you can configure custom ports directly in the server selection screen
+   - For all servers, you can configure custom ports by clicking the "Configure Ports" button
+   - Each exporter can have custom "To Target" and "From Target" ports configured
+   - Blackbox monitoring features (SSH-banner, TCP-connect, SNMP, SSL) can also have custom ports
    - Use the checkboxes to select which servers to include in your firewall request
 4. **Choose Output Format**:
    - Select your preferred output format (CSV, Excel, PDF, Firewall Check CSV, or firewall-specific formats)
@@ -363,6 +425,54 @@ Contributions are welcome, and any contributions you make are greatly appreciate
 3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
+
+## Tests
+
+The application includes a comprehensive suite of tests to ensure the reliability and correctness of its functionality, with over 80% code coverage. These tests cover various aspects of the application, including:
+
+- **CSV Upload**: Tests uploading a CSV file and checks for redirection and session variables.
+- **Process Page**: Tests that the process page displays all hostnames from the CSV.
+- **Edge Case Detection**: Tests that edge cases are properly detected and displayed with port input fields.
+- **Edge Case Port Submission**: Tests submitting edge case port configurations directly in the process page.
+- **Output Format Options**: Tests that different output formats are supported.
+- **Firewall Check CSV Option**: Tests that the firewall check CSV option is available.
+- **Download Check Script**: Tests downloading the firewall check script.
+- **Firewall Format Generation**: Tests generation of firewall-specific formats.
+- **Firewall Check CSV Generation**: Tests generation of the firewall check CSV format.
+- **Port Mappings Tab**: Tests that the port mappings tab is present on the process page.
+- **Port Mappings API**: Tests both GET and POST endpoints for fetching and setting port mappings.
+- **Custom Port Mappings Integration**: Tests that custom port mappings are used in the CSV generation process.
+- **Exporter-Specific Port Configurations**: Tests handling of custom port configurations for specific exporters.
+- **Blackbox Monitoring Configurations**: Tests port customization for blackbox monitoring (SNMP, SSL, etc.).
+- **Error Handling**: Tests various error scenarios such as missing files, invalid formats, etc.
+- **Configuration Export**: Tests exporting the current configuration as YAML.
+- **File Cleanup**: Tests the automatic cleanup of temporary files.
+
+The CI/CD pipeline includes automatic code coverage measurement, ensuring that test coverage remains above the 70% threshold. A coverage badge is automatically generated and displayed at the top of this README.
+
+### Test Coverage
+
+The coverage badge shows the current test coverage percentage for the application. The badge color indicates the coverage level:
+- Green: 80% or higher coverage (excellent)
+- Yellow: 70-79% coverage (good)
+- Red: Below 70% coverage (needs improvement)
+
+The coverage is calculated using pytest-cov and is updated automatically with each push to the main branch.
+
+### Running Tests
+
+You can run the tests locally using pytest:
+
+```bash
+# Run all tests with coverage report
+pytest test_app.py test_app_coverage.py --cov=app --cov-report=term
+
+# Run a specific test
+pytest test_app.py::test_process_page -v
+
+# Run tests with output
+pytest -v
+```
 
 License
 
