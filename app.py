@@ -7,6 +7,7 @@ import os
 import uuid
 import time
 import json
+import yaml
 import logging
 from datetime import datetime
 from flask import Flask, request, redirect, url_for, flash, send_file, session, render_template, jsonify, make_response
@@ -15,9 +16,39 @@ import pandas as pd
 import pdfkit  # For PDF generation (requires wkhtmltopdf installed)
 import shutil  # For checking executable paths
 from port_defaults import DEFAULT_PORT_SUGGESTIONS, COMMON_APPLICATION_PORTS, PORT_TEMPLATES, FIREWALL_TEMPLATES
+from config_loader import load_config, get_port_mappings, get_column_mappings, get_columns_for_exporter
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', '123456789')  # Better to set via environment variable
+
+# Load configuration
+try:
+    config_path = os.environ.get('PORT_CONFIG', None)
+    app_config = load_config(config_path)
+    PORT_MAPPINGS = get_port_mappings(app_config)
+    COLUMN_MAPPINGS = get_column_mappings(app_config)
+    
+    # Store config info for status page
+    APP_CONFIG_INFO = {
+        'loaded': True,
+        'port_mappings_count': len(PORT_MAPPINGS),
+        'column_mappings_count': len(COLUMN_MAPPINGS),
+        'exporters': list(sorted(PORT_MAPPINGS.keys())),
+    }
+except Exception as e:
+    error_message = f"Error loading configuration: {e}"
+    print(error_message)
+    logger.error(error_message)
+    # Set empty defaults if config loading fails
+    PORT_MAPPINGS = {}
+    COLUMN_MAPPINGS = {}
+    APP_CONFIG_INFO = {
+        'loaded': False,
+        'error': str(e),
+        'port_mappings_count': 0,
+        'column_mappings_count': 0,
+        'exporters': []
+    }
 
 # Configure logging
 logging.basicConfig(
@@ -38,13 +69,21 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Limit upload size to 16MB
 # Create the upload folder if it doesn't exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Template CSV contents
+# Template CSV contents - First row has column headers
 TEMPLATE_CSV_CONTENT = """FQDN,IP Address,Exporter_name_os,Exporter_name_app,Exporter_name_app_2,Exporter_name_app_3,ssh-banner,tcp-connect,TCP_Connect_Port,SNMP,Exporter_SSL
 server1.example.com,192.168.1.10,exporter_linux,exporter_jmx,,,,,,, 
 server2.example.com,192.168.1.11,exporter_windows,exporter_mpp,,,,,,,
 db1.example.com,192.168.1.20,exporter_linux,exporter_redis,,,,,,,
-blackbox1.example.com,192.168.1.30,,,,true,true,,true,true
-blackbox2.example.com,192.168.1.31,,,,,,,8080,,true
+blackbox1.example.com,192.168.1.30,,,,TRUE,TRUE,,TRUE,TRUE
+blackbox2.example.com,192.168.1.31,,,,,TRUE,8080,,TRUE
+blackbox3.example.com,192.168.1.32,,,,TRUE,,,,,
+blackbox4.example.com,192.168.1.33,,,,,,,,TRUE,
+blackbox5.example.com,192.168.1.34,,,,,,,,,TRUE
+blackbox6.example.com,192.168.1.35,,,,True,true,,true,TRUE
+blackbox7.example.com,192.168.1.36,,,,1,yes,,1,yes
+hybrid1.example.com,192.168.1.40,exporter_linux,,,,TRUE,,,,
+hybrid2.example.com,192.168.1.41,exporter_windows,,,,,TRUE,443,,
+hybrid3.example.com,192.168.1.42,exporter_jmx,,,,,,9090,TRUE,TRUE
 """
 
 # Function to delete old temporary files
@@ -67,148 +106,40 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
     """Generate a CSV file with port mappings for the selected hostnames.
     
     This function processes the CSV file and generates port mappings for servers with 
-    standard exporters. Servers without exporters but with special monitoring flags
-    are handled separately through the edge case flow.
+    standard exporters. It also handles exporter-specific port configurations and
+    blackbox monitoring cases.
     """
-    # Define the default port mappings
-    port_mappings = {
-        "exporter_cms": {
-            "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "443"), ("SSL", "443")],
-            "dst": [],
-        },
-        "exporter_aes": {
-            "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "443"), ("SSL", "8443")],
-            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
-        },
-        "exporter_aessnmp": {
-            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
-            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_gateway": {
-            "src": [("UDP", "161"), ("TCP", "22"), ("ICMP", "ping")],
-            "dst": [("UDP", "162")],
-        },
-        "exporter_ams": {
-            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "8443"), ("ICMP", "ping"), ("SSL", "8443")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_sm": {
-            "src": [("TCP", "22"), ("ICMP", "ping")],
-            "dst": [("UDP", "162")],
-        },
-        "exporter_avayasbc": {
-            "src": [("TCP", "22"), ("TCP", "222"), ("UDP", "161"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
-            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_aaep": {
-            "src": [("TCP", "22"), ("TCP", "5432"), ("UDP", "161"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
-            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_mpp": {
-            "src": [("TCP", "22"), ("ICMP", "ping")],
-            "dst": [],
-        },
-        "exporter_windows": {
-            "src": [("TCP", "9182"), ("ICMP", "ping")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_linux": {
-            "src": [("TCP", "22"), ("ICMP", "ping")],
-            "dst": [],
-        },
-        "exporter_ipo": {
-            "src": [("TCP", "22"), ("TCP", "443"), ("UDP", "161")],
-            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_iq": {
-            "src": [("TCP", "22"), ("TCP", "443"), ("ICMP", "ping")],
-            "dst": [],
-        },
-        "exporter_weblm": {
-            "src": [("TCP", "22"), ("TCP", "443"), ("TCP", "52233"), ("ICMP", "ping"), ("SSL", "443"), ("SSL", "52233")],
-            "dst": [],
-        },
-        "exporter_aacc": {
-            "src": [("TCP", "9182"), ("TCP", "8443"), ("ICMP", "ping"), ("SSL", "443")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_wfodb": {
-            "src": [("TCP", "1433"), ("TCP", "9182"), ("ICMP", "ping")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_verint": {
-            "src": [("TCP", "9182"), ("ICMP", "ping"), ("TCP", "8443"), ("ICMP", "ping"), ("SSL", "8443")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_network": {
-            "src": [("UDP", "161"), ("ICMP", "ping")],
-            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_tcti": {
-            "src": [("TCP", "8080"), ("ICMP", "ping")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_callback": {
-            "src": [("TCP", "1433"), ("ICMP", "ping")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_nuancelm": {
-            "src": [("TCP", "9182"), ("TCP", "27000"), ("ICMP", "ping")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_jmx": {
-            "src": [("TCP", "7080"), ("ICMP", "ping")],
-            "dst": [],
-        },
-        "exporter_breeze": {
-            "src": [("TCP", "22"), ("ICMP", "ping"), ("SSL", "443")],
-            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_acm": {
-            "src": [("TCP", "22"), ("TCP", "5022"), ("TCP", "443"), ("UDP", "161"), ("ICMP", "ping"), ("SSL", "443")],
-            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
-        },
-        "exporter_vmware": {
-            "src": [("TCP", "22"), ("ICMP", "PING"), ("TCP", "443")],
-            "dst": [],
-        },
-        "exporter_kafka": {
-            "src": [("TCP", "9092")],
-            "dst": [],
-        },
-        "exporter_drac": {
-            "src": [("TCP", "22"), ("ICMP", "PING"), ("UDP", "161")],
-            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_pfsense": {
-            "src": [("TCP", "22"), ("ICMP", "PING"), ("UDP", "161")],
-            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_aic": {
-            "src": [("TCP", "9183"), ("ICMP", "ping"), ("SSL", "443")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_voiceportal": {
-            "src": [("TCP", "5432"), ("ICMP", "ping"), ("TCP", "443"), ("TCP", "22")],
-            "dst": [],
-        },
-        "exporter_aam": {
-            "src": [("ICMP", "ping"), ("TCP", "8443"), ("TCP", "22"), ("UDP", "161"), ("SSL", "8443")],
-            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
-        },
-        "exporter_pc5": {
-            "src": [("ICMP", "ping"), ("TCP", "22")],
-            "dst": [],
-        },
-        "exporter_audiocodes": {
-            "src": [("ICMP", "ping"), ("TCP", "22"), ("UDP", "161"), ("SSL", "443")],
-            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162"), ("SSL", "443")],
-        },
-        "exporter_redis": {
-            "src": [("TCP", "6379")],
-            "dst": [],
-        },
-    }
+    # Use the port mappings from configuration
+    port_mappings = PORT_MAPPINGS.copy()
+    
+    # If configuration is empty, use hardcoded fallback mappings
+    if not port_mappings:
+        logger.warning("No port mappings found in configuration, using hardcoded defaults")
+        port_mappings = {
+            "exporter_linux": {
+                "src": [("TCP", "22"), ("ICMP", "ping")],
+                "dst": [],
+            },
+            "exporter_windows": {
+                "src": [("TCP", "9182"), ("ICMP", "ping")],
+                "dst": [("UDP", "514"), ("TCP", "514")],
+            },
+            # Add a few more essential defaults
+            "exporter_network": {
+                "src": [("UDP", "161"), ("ICMP", "ping")],
+                "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+            }
+        }
+    else:
+        # Convert the port mappings from the config format to tuple format expected by the code
+        for exporter_name, mapping in port_mappings.items():
+            if 'src' in mapping and isinstance(mapping['src'], list):
+                src_ports = [tuple(port_entry) for port_entry in mapping['src']]
+                port_mappings[exporter_name]['src'] = src_ports
+            
+            if 'dst' in mapping and isinstance(mapping['dst'], list):
+                dst_ports = [tuple(port_entry) for port_entry in mapping['dst']]
+                port_mappings[exporter_name]['dst'] = dst_ports
     
     # Check for custom port mappings in session and merge them with the defaults
     if 'custom_port_mappings' in session and session['custom_port_mappings']:
@@ -232,6 +163,11 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
                 "src": src_ports,
                 "dst": dst_ports
             }
+
+    # Get the form data for custom port configurations
+    form_data = {}
+    if request.form:
+        form_data = request.form.to_dict(flat=False)
 
     unique_entries = set()
     processed_count = 0
@@ -307,19 +243,192 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
                 skipped_count += 1
                 continue
 
-            # Collect all exporter names by looking for columns with "Exporter" in the name
+            # Check for blackbox monitoring port configurations
+            blackbox_ports = []
+            
+            # Check if this row has blackbox flags directly in the data
+            # Use the column indices from the CSV file to get the values
+            has_ssh_banner = False
+            has_tcp_connect = False
+            has_snmp = False
+            has_ssl = False
+            tcp_port_value = None
+            
+            # Get the column indices from headers if available
+            header_columns = {}
+            if "csv_columns" in session:
+                header_columns = session.get("csv_columns", {})
+            
+            # Loop through all rows in the headers data to find this hostname
+            all_rows = list(csv.reader(input_file))
+            input_file.seek(0)  # Reset file position after reading
+            
+            # Find the header row
+            header_row = None
+            for i, row in enumerate(all_rows[:min(10, len(all_rows))]):
+                if any('FQDN' in str(cell).upper() for cell in row):
+                    header_row = i
+                    break
+            
+            if header_row is not None:
+                headers = all_rows[header_row]
+                # Find indices for important columns
+                ssh_banner_idx = None
+                tcp_connect_idx = None
+                tcp_port_idx = None
+                snmp_idx = None
+                ssl_idx = None
+                fqdn_idx = None
+                
+                for i, header in enumerate(headers):
+                    header_upper = str(header).upper()
+                    if 'FQDN' in header_upper:
+                        fqdn_idx = i
+                    elif 'SSH-BANNER' in header_upper.replace('_', '-'):
+                        ssh_banner_idx = i
+                    elif 'TCP-CONNECT' in header_upper.replace('_', '-') and 'PORT' not in header_upper:
+                        tcp_connect_idx = i
+                    elif 'TCP' in header_upper and 'CONNECT' in header_upper and 'PORT' in header_upper:
+                        tcp_port_idx = i
+                    elif 'SNMP' in header_upper:
+                        snmp_idx = i
+                    elif 'SSL' in header_upper or 'EXPORTER_SSL' in header_upper:
+                        ssl_idx = i
+                
+                # Search for this hostname in the data rows
+                for row in all_rows[header_row + 1:]:
+                    if len(row) <= fqdn_idx:
+                        continue
+                    
+                    if row[fqdn_idx].strip() == target_fqdn:
+                        # Check SSH Banner
+                        if ssh_banner_idx is not None and ssh_banner_idx < len(row):
+                            value = row[ssh_banner_idx].strip().lower()
+                            if value in ('1', 'true', 'yes', 'y', 't'):
+                                has_ssh_banner = True
+                        
+                        # Check TCP Connect
+                        if tcp_connect_idx is not None and tcp_connect_idx < len(row):
+                            value = row[tcp_connect_idx].strip().lower()
+                            if value in ('1', 'true', 'yes', 'y', 't'):
+                                has_tcp_connect = True
+                        
+                        # Check TCP Port
+                        if tcp_port_idx is not None and tcp_port_idx < len(row):
+                            value = row[tcp_port_idx].strip()
+                            if value and value not in ('0', 'false', 'no', 'n', ''):
+                                tcp_port_value = value
+                        
+                        # Check SNMP
+                        if snmp_idx is not None and snmp_idx < len(row):
+                            value = row[snmp_idx].strip().lower()
+                            if value in ('1', 'true', 'yes', 'y', 't'):
+                                has_snmp = True
+                        
+                        # Check SSL
+                        if ssl_idx is not None and ssl_idx < len(row):
+                            value = row[ssl_idx].strip().lower()
+                            if value in ('1', 'true', 'yes', 'y', 't'):
+                                has_ssl = True
+                        
+                        break  # Found the target row, no need to continue
+            
+            # First try to get ports from form data
+            # SSH Banner monitoring
+            ssh_banner_port_key = f"ssh_banner_port_{target_fqdn}"
+            if ssh_banner_port_key in form_data:
+                port = form_data[ssh_banner_port_key][0].strip()
+                if port:
+                    blackbox_ports.append(("TCP", port, "SSH Banner"))
+            elif has_ssh_banner:
+                # Use default port if flag is set but no port is in form data
+                blackbox_ports.append(("TCP", "22", "SSH Banner"))
+            
+            # TCP Connect monitoring
+            tcp_connect_port_key = f"tcp_connect_port_{target_fqdn}"
+            if tcp_connect_port_key in form_data:
+                port = form_data[tcp_connect_port_key][0].strip()
+                if port and port.lower() not in ('true', 'yes', '1', 't', 'y'):
+                    blackbox_ports.append(("TCP", port, "TCP Connect"))
+                else:
+                    # Default or from TCP_Connect_Port
+                    port = tcp_port_value or "3389"
+                    blackbox_ports.append(("TCP", port, "TCP Connect"))
+            elif has_tcp_connect:
+                # Use custom port from CSV or default
+                port = tcp_port_value or "3389"
+                blackbox_ports.append(("TCP", port, "TCP Connect"))
+            elif tcp_port_value:
+                # If there's a TCP port value but no flag, still use it
+                blackbox_ports.append(("TCP", tcp_port_value, "TCP Connect"))
+            
+            # SNMP monitoring
+            snmp_port_key = f"snmp_port_{target_fqdn}"
+            if snmp_port_key in form_data:
+                port = form_data[snmp_port_key][0].strip()
+                if port and port.lower() not in ('true', 'yes', '1', 't', 'y'):
+                    blackbox_ports.append(("UDP", port, "SNMP"))
+                else:
+                    # Use default port if value is invalid or a boolean flag
+                    blackbox_ports.append(("UDP", "161", "SNMP"))
+            elif has_snmp:
+                # Use default port if flag is set but no port is in form data
+                blackbox_ports.append(("UDP", "161", "SNMP"))
+            
+            # SSL monitoring
+            ssl_port_key = f"ssl_port_{target_fqdn}"
+            if ssl_port_key in form_data:
+                port = form_data[ssl_port_key][0].strip()
+                if port and port.lower() not in ('true', 'yes', '1', 't', 'y'):
+                    blackbox_ports.append(("TCP", port, "SSL"))
+                else:
+                    # Use default port if value is invalid or a boolean flag
+                    blackbox_ports.append(("TCP", "443", "SSL"))
+            elif has_ssl:
+                # Use default port if flag is set but no port is in form data
+                blackbox_ports.append(("TCP", "443", "SSL"))
+            
+            # Add blackbox monitoring entries
+            for protocol, port, monitor_type in blackbox_ports:
+                description = f"Monitoring from {maas_ng_fqdn} to {target_fqdn} ({monitor_type})"
+                entry = (maas_ng_fqdn, maas_ng_ip, target_fqdn, ip, protocol, port, description)
+                if entry not in unique_entries:
+                    writer.writerow(entry)
+                    unique_entries.add(entry)
+                    processed_count += 1
+            
+            # Collect all exporter names using the column mappings configuration
             exporters = []
-            for i, header in enumerate(headers):
-                if i >= len(row):
-                    continue
-                if 'EXPORTER' in str(header).upper() and row[i].strip():
-                    exporters.append(row[i].strip())
-
+            
+            # First try using the column mappings from the configuration
+            for exporter_name, config in COLUMN_MAPPINGS.items():
+                column_names = []
+                
+                # Get column names for this exporter type
+                if 'column_name' in config:
+                    column_names = [config['column_name']]
+                elif 'column_names' in config:
+                    column_names = config['column_names']
+                
+                # Check each column name
+                for col_name in column_names:
+                    for i, header in enumerate(headers):
+                        if i >= len(row):
+                            continue
+                        # Case-insensitive comparison
+                        if col_name.upper() == str(header).upper() and row[i].strip():
+                            exporters.append(row[i].strip())
+            
+            # If no exporters found using column mappings, fall back to generic approach
             if not exporters:
-                logger.warning(f"No exporters found for {target_fqdn}")
-                skipped_count += 1
-                continue
+                logger.info(f"No exporters found using column mappings for {target_fqdn}, using fallback method")
+                for i, header in enumerate(headers):
+                    if i >= len(row):
+                        continue
+                    if 'EXPORTER' in str(header).upper() and row[i].strip():
+                        exporters.append(row[i].strip())
 
+            # Process each exporter
             for exporter in exporters:
                 # Convert to lowercase for case-insensitive comparison
                 exporter_lower = exporter.lower()
@@ -332,8 +441,44 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
                         break
                 
                 if exporter_key:
-                    # Use the matched key to get port mappings
-                    for protocol, port in port_mappings[exporter_key]["src"]:
+                    # Check for custom port configuration for this exporter in the form data
+                    to_target_key = f"exporter_to_{exporter}_{target_fqdn}"
+                    from_target_key = f"exporter_from_{exporter}_{target_fqdn}"
+                    
+                    # Get custom configured ports if present
+                    has_custom_config = False
+                    to_target_ports = []
+                    from_target_ports = []
+                    
+                    if to_target_key in form_data:
+                        custom_ports = form_data[to_target_key][0].strip()
+                        if custom_ports:
+                            has_custom_config = True
+                            # Split comma-separated ports and create a list of TCP ports
+                            # Don't include ICMP ping here - those come from default mappings
+                            to_target_ports = [("TCP", port.strip()) for port in custom_ports.split(',') 
+                                              if port.strip() and port.strip().lower() != 'ping']
+                    
+                    if from_target_key in form_data:
+                        custom_ports = form_data[from_target_key][0].strip()
+                        if custom_ports:
+                            has_custom_config = True
+                            # Split comma-separated ports and create a list of TCP ports
+                            from_target_ports = [("TCP", port.strip()) for port in custom_ports.split(',') 
+                                                if port.strip() and port.strip().lower() != 'ping']
+                    
+                    # Use custom port configuration if provided, otherwise use defaults
+                    if has_custom_config:
+                        # If we have a custom config, use it (completely replacing defaults)
+                        src_ports = to_target_ports
+                        dst_ports = from_target_ports
+                    else:
+                        # Otherwise use defaults
+                        src_ports = port_mappings[exporter_key]["src"]
+                        dst_ports = port_mappings[exporter_key]["dst"]
+                    
+                    # Add entries for source to destination (monitoring server to target)
+                    for protocol, port in src_ports:
                         description = f"Monitoring from {maas_ng_fqdn} to {target_fqdn} ({exporter})"
                         entry = (maas_ng_fqdn, maas_ng_ip, target_fqdn, ip, protocol, port, description)
                         if entry not in unique_entries:
@@ -341,7 +486,8 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
                             unique_entries.add(entry)
                             processed_count += 1
 
-                    for protocol, port in port_mappings[exporter_key]["dst"]:
+                    # Add entries for destination to source (target to monitoring server)
+                    for protocol, port in dst_ports:
                         description = f"Return traffic from {target_fqdn} to {maas_ng_fqdn} ({exporter})"
                         entry = (target_fqdn, ip, maas_ng_fqdn, maas_ng_ip, protocol, port, description)
                         if entry not in unique_entries:
@@ -350,6 +496,53 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
                             processed_count += 1
                 else:
                     logger.warning(f"Unknown exporter type: {exporter} for {target_fqdn}")
+
+            # Process additional custom ports (always available)
+            to_target_key = f"to_target_{target_fqdn}"
+            from_target_key = f"from_target_{target_fqdn}"
+            
+            # Get custom ports from form data
+            if to_target_key in form_data:
+                custom_ports = form_data[to_target_key][0].strip()
+                if custom_ports:
+                    # Filter out non-numeric ports (like 'ping' which should be handled separately)
+                    ports = [port.strip() for port in custom_ports.split(',') 
+                             if port.strip() and port.strip().lower() != 'ping']
+                    
+                    # Check for duplicates with blackbox monitoring entries
+                    blackbox_port_values = [port for protocol, port, _ in blackbox_ports]
+                    
+                    # Only add ports that aren't already covered by blackbox monitoring
+                    # Make sure to check both port numbers and protocol
+                    # We also need to track which blackbox ports already have entries
+                    blackbox_port_entries = [(protocol, port) for protocol, port, _ in blackbox_ports]
+                    
+                    # Filter out ports that match blackbox monitoring entries
+                    unique_ports = [p for p in ports if not any(p == entry[1] for entry in blackbox_port_entries)]
+                    
+                    for port in unique_ports:
+                        description = f"Custom monitoring from {maas_ng_fqdn} to {target_fqdn}"
+                        entry = (maas_ng_fqdn, maas_ng_ip, target_fqdn, ip, "TCP", port, description)
+                        if entry not in unique_entries:
+                            writer.writerow(entry)
+                            unique_entries.add(entry)
+                            processed_count += 1
+                            logger.info(f"Added custom to_target port {port} for {target_fqdn}")
+            
+            if from_target_key in form_data:
+                custom_ports = form_data[from_target_key][0].strip()
+                if custom_ports:
+                    # Filter out non-numeric ports (like 'ping')
+                    ports = [port.strip() for port in custom_ports.split(',') 
+                             if port.strip() and port.strip().lower() != 'ping']
+                    for port in ports:
+                        description = f"Custom return traffic from {target_fqdn} to {maas_ng_fqdn}"
+                        entry = (target_fqdn, ip, maas_ng_fqdn, maas_ng_ip, "TCP", port, description)
+                        if entry not in unique_entries:
+                            writer.writerow(entry)
+                            unique_entries.add(entry)
+                            processed_count += 1
+                            logger.info(f"Added custom from_target port {port} for {target_fqdn}")
 
         logger.info(f"Processed {processed_count} port mappings, skipped {skipped_count} items")
         return processed_count, skipped_count
@@ -527,52 +720,77 @@ def process():
                         has_exporters = True
                         break
                 
-                # If it has exporters, it's not an edge case
-                if not has_exporters:
-                    # Check SSH Banner
-                    if ssh_banner_index is not None and ssh_banner_index < len(row):
-                        value = row[ssh_banner_index].strip().lower()
-                        if value in ('1', 'true', 'yes', 'y', 't'):
-                            monitoring_flags['ssh_banner'] = True
-                            is_edge_case = True
+                # Always check monitoring flags, even for servers with exporters (hybrid case)
+                # Only mark as edge case if it has no exporters
                 
-                    # Check TCP Connect
-                    if tcp_connect_index is not None and tcp_connect_index < len(row):
-                        value = row[tcp_connect_index].strip().lower()
-                        if value in ('1', 'true', 'yes', 'y', 't'):
-                            monitoring_flags['tcp_connect'] = True
+                # Check SSH Banner
+                if ssh_banner_index is not None and ssh_banner_index < len(row):
+                    orig_value = row[ssh_banner_index].strip()
+                    value = orig_value.lower()
+                    if value in ('1', 'true', 'yes', 'y', 't'):
+                        monitoring_flags['ssh_banner'] = orig_value  # Keep original value
+                        if not has_exporters:
                             is_edge_case = True
+                        logger.info(f"Detected SSH Banner for {row[fqdn_index]}: {orig_value}")
                 
-                    # Check TCP Port
-                    if tcp_port_index is not None and tcp_port_index < len(row):
-                        value = row[tcp_port_index].strip()
-                        if value and value not in ('0', 'false', 'no', 'n', ''):
-                            monitoring_flags['tcp_port'] = value
+                # Check TCP Connect
+                if tcp_connect_index is not None and tcp_connect_index < len(row):
+                    orig_value = row[tcp_connect_index].strip()
+                    value = orig_value.lower()
+                    if value in ('1', 'true', 'yes', 'y', 't'):
+                        monitoring_flags['tcp_connect'] = orig_value  # Keep original value
+                        if not has_exporters:
                             is_edge_case = True
+                        logger.info(f"Detected TCP Connect for {row[fqdn_index]}: {orig_value}")
                 
-                    # Check SNMP
-                    if snmp_index is not None and snmp_index < len(row):
-                        value = row[snmp_index].strip().lower()
-                        if value in ('1', 'true', 'yes', 'y', 't'):
-                            monitoring_flags['snmp'] = True
+                # Check TCP Port
+                if tcp_port_index is not None and tcp_port_index < len(row):
+                    value = row[tcp_port_index].strip()
+                    if value and value not in ('0', 'false', 'no', 'n', ''):
+                        monitoring_flags['tcp_port'] = value
+                        if not has_exporters:
                             is_edge_case = True
+                        logger.info(f"Detected TCP Port for {row[fqdn_index]}: {value}")
                 
-                    # Check SSL
-                    if ssl_index is not None and ssl_index < len(row):
-                        value = row[ssl_index].strip().lower()
-                        if value in ('1', 'true', 'yes', 'y', 't'):
-                            monitoring_flags['ssl'] = True
+                # Check SNMP
+                if snmp_index is not None and snmp_index < len(row):
+                    orig_value = row[snmp_index].strip()
+                    value = orig_value.lower()
+                    if value in ('1', 'true', 'yes', 'y', 't'):
+                        monitoring_flags['snmp'] = orig_value  # Keep original value
+                        if not has_exporters:
                             is_edge_case = True
+                        logger.info(f"Detected SNMP for {row[fqdn_index]}: {orig_value}")
+                
+                # Check SSL
+                if ssl_index is not None and ssl_index < len(row):
+                    orig_value = row[ssl_index].strip()
+                    value = orig_value.lower()
+                    if value in ('1', 'true', 'yes', 'y', 't'):
+                        monitoring_flags['ssl'] = orig_value  # Keep original value
+                        if not has_exporters:
+                            is_edge_case = True
+                        logger.info(f"Detected SSL for {row[fqdn_index]}: {orig_value}")
                 
                 # Create suggested to_target and from_target ports
                 to_target_ports = []
                 from_target_ports = []
                 
+                # Create a dictionary of suggested ports
+                suggested_ports = {}
+                
+                # Set default port suggestions for blackbox monitoring
+                suggested_ports['ssh_banner'] = '22'
+                suggested_ports['tcp_connect'] = monitoring_flags['tcp_port'] or '3389'
+                suggested_ports['snmp'] = '161'
+                suggested_ports['ssl'] = '443'
+                
+                # Add ports to the lists
                 if monitoring_flags['ssh_banner']:
                     to_target_ports.append('22')
                 
                 if monitoring_flags['tcp_connect']:
-                    to_target_ports.append('3389')
+                    to_target_ports.append(suggested_ports['tcp_connect'])
                 
                 if monitoring_flags['tcp_port']:
                     to_target_ports.append(monitoring_flags['tcp_port'])
@@ -584,21 +802,45 @@ def process():
                     to_target_ports.append('161')
                     from_target_ports.append('162')
                 
+                # Get exporter data
+                exporters = []
+                for idx in exporter_indices:
+                    if idx < len(row) and row[idx].strip():
+                        exporter_name = row[idx].strip()
+                        exporters.append(exporter_name)
+                        
+                        # Add suggested ports from configuration for this exporter (if available)
+                        if exporter_name in PORT_MAPPINGS:
+                            exporter_ports = {
+                                'src': PORT_MAPPINGS[exporter_name].get('src', []),
+                                'dst': PORT_MAPPINGS[exporter_name].get('dst', [])
+                            }
+                            
+                            # Add to suggested ports dictionary
+                            suggested_ports[exporter_name] = exporter_ports
+                
                 # Add host to the list
                 hostnames.append(fqdn)
                 host_info = {
                     'fqdn': fqdn,
                     'ip': ip,
-                    'is_edge_case': is_edge_case
+                    'exporters': exporters,
+                    'is_edge_case': is_edge_case,
+                    'suggested_ports': suggested_ports
                 }
                 
-                # Add monitoring flags and suggested ports if this is an edge case
-                if is_edge_case:
-                    host_info.update({
-                        'monitoring_flags': monitoring_flags,
-                        'suggested_to_target': ','.join(to_target_ports),
-                        'suggested_from_target': ','.join(from_target_ports)
-                    })
+                # Always add monitoring flags to host_info
+                # This ensures hybrid servers (with both exporters and monitoring flags) are properly processed
+                host_info.update({
+                    'monitoring_flags': monitoring_flags,
+                    'suggested_to_target': ','.join(to_target_ports),
+                    'suggested_from_target': ','.join(from_target_ports),
+                    'ssh_banner': monitoring_flags['ssh_banner'],
+                    'tcp_connect': monitoring_flags['tcp_connect'],
+                    'tcp_port': monitoring_flags['tcp_port'],
+                    'snmp': monitoring_flags['snmp'],
+                    'ssl': monitoring_flags['ssl']
+                })
                 
                 hostnames_info.append(host_info)
         
@@ -741,7 +983,7 @@ def find_edge_cases(input_file_path, selected_hostnames):
 
 
 def process_and_generate_output(selected_hostnames, maas_ng_fqdn, maas_ng_ip, output_format):
-    """Process CSV and generate output file with optional edge cases."""
+    """Process CSV and generate output file with port configurations from UI."""
     try:
         # Get the file path from session
         input_file_path = session.get('file_path')
@@ -765,41 +1007,6 @@ def process_and_generate_output(selected_hostnames, maas_ng_fqdn, maas_ng_ip, ou
                 selected_hostnames
             )
             
-            # Add edge case entries if any
-            edge_case_configs = session.get('edge_case_configs', {})
-            if edge_case_configs:
-                # Close and reopen the file in append mode to add edge cases
-                output_file.close()
-                with open(output_file_path, 'a', newline='') as output_file:
-                    writer = csv.writer(output_file)
-                    edge_case_count = 0
-                    
-                    for fqdn, config in edge_case_configs.items():
-                        ip = config['ip']
-                        
-                        # Process "to target" ports (monitoring server to target)
-                        if config['to_target']:
-                            ports = [p.strip() for p in config['to_target'].split(',') if p.strip()]
-                            for port in ports:
-                                description = f"Monitoring from {maas_ng_fqdn} to {fqdn} (edge case)"
-                                writer.writerow([
-                                    maas_ng_fqdn, maas_ng_ip, fqdn, ip, "TCP", port, description
-                                ])
-                                edge_case_count += 1
-                        
-                        # Process "from target" ports (target to monitoring server)
-                        if config['from_target']:
-                            ports = [p.strip() for p in config['from_target'].split(',') if p.strip()]
-                            for port in ports:
-                                description = f"Return traffic from {fqdn} to {maas_ng_fqdn} (edge case)"
-                                writer.writerow([
-                                    fqdn, ip, maas_ng_fqdn, maas_ng_ip, "TCP", port, description
-                                ])
-                                edge_case_count += 1
-                    
-                    logger.info(f"Added {edge_case_count} edge case entries")
-                    processed_count += edge_case_count
-        
         logger.info(f"CSV processing complete: processed={processed_count}, skipped={skipped_count}")
         
         # Create a dataframe from the CSV for all formats
@@ -1126,151 +1333,42 @@ def download_check_script():
         flash(f"Error downloading firewall check script: {str(e)}", "error")
         return redirect(url_for("upload_csv"))
 
+@app.route("/config_status", methods=["GET"])
+def config_status():
+    """Display information about the current configuration."""
+    return render_template(
+        "config_status.html",
+        config_info=APP_CONFIG_INFO,
+        port_mappings=PORT_MAPPINGS,
+        column_mappings=COLUMN_MAPPINGS
+    )
+
 @app.route("/api/port_mappings", methods=["GET", "POST"])
 def port_mappings_api():
     """API endpoint for getting and setting custom port mappings."""
-    # Define the default port mappings (same as in create_port_csv function)
-    default_port_mappings = {
-        "exporter_cms": {
-            "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "443"), ("SSL", "443")],
-            "dst": [],
-        },
-        "exporter_aes": {
-            "src": [("TCP", "22"), ("ICMP", "ping"), ("TCP", "443"), ("SSL", "8443")],
-            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
-        },
-        "exporter_aessnmp": {
-            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
-            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_gateway": {
-            "src": [("UDP", "161"), ("TCP", "22"), ("ICMP", "ping")],
-            "dst": [("UDP", "162")],
-        },
-        "exporter_ams": {
-            "src": [("TCP", "22"), ("UDP", "161"), ("TCP", "8443"), ("ICMP", "ping"), ("SSL", "8443")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_sm": {
-            "src": [("TCP", "22"), ("ICMP", "ping")],
-            "dst": [("UDP", "162")],
-        },
-        "exporter_avayasbc": {
-            "src": [("TCP", "22"), ("TCP", "222"), ("UDP", "161"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
-            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_aaep": {
-            "src": [("TCP", "22"), ("TCP", "5432"), ("UDP", "161"), ("TCP", "443"), ("ICMP", "ping"), ("SSL", "443")],
-            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_mpp": {
-            "src": [("TCP", "22"), ("ICMP", "ping")],
-            "dst": [],
-        },
-        "exporter_windows": {
-            "src": [("TCP", "9182"), ("ICMP", "ping")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_linux": {
-            "src": [("TCP", "22"), ("ICMP", "ping")],
-            "dst": [],
-        },
-        "exporter_ipo": {
-            "src": [("TCP", "22"), ("TCP", "443"), ("UDP", "161")],
-            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_iq": {
-            "src": [("TCP", "22"), ("TCP", "443"), ("ICMP", "ping")],
-            "dst": [],
-        },
-        "exporter_weblm": {
-            "src": [("TCP", "22"), ("TCP", "443"), ("TCP", "52233"), ("ICMP", "ping"), ("SSL", "443"), ("SSL", "52233")],
-            "dst": [],
-        },
-        "exporter_aacc": {
-            "src": [("TCP", "9182"), ("TCP", "8443"), ("ICMP", "ping"), ("SSL", "443")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_wfodb": {
-            "src": [("TCP", "1433"), ("TCP", "9182"), ("ICMP", "ping")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_verint": {
-            "src": [("TCP", "9182"), ("ICMP", "ping"), ("TCP", "8443"), ("ICMP", "ping"), ("SSL", "8443")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_network": {
-            "src": [("UDP", "161"), ("ICMP", "ping")],
-            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_tcti": {
-            "src": [("TCP", "8080"), ("ICMP", "ping")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_callback": {
-            "src": [("TCP", "1433"), ("ICMP", "ping")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_nuancelm": {
-            "src": [("TCP", "9182"), ("TCP", "27000"), ("ICMP", "ping")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_jmx": {
-            "src": [("TCP", "7080"), ("ICMP", "ping")],
-            "dst": [],
-        },
-        "exporter_breeze": {
-            "src": [("TCP", "22"), ("ICMP", "ping"), ("SSL", "443")],
-            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_acm": {
-            "src": [("TCP", "22"), ("TCP", "5022"), ("TCP", "443"), ("UDP", "161"), ("ICMP", "ping"), ("SSL", "443")],
-            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
-        },
-        "exporter_vmware": {
-            "src": [("TCP", "22"), ("ICMP", "PING"), ("TCP", "443")],
-            "dst": [],
-        },
-        "exporter_kafka": {
-            "src": [("TCP", "9092")],
-            "dst": [],
-        },
-        "exporter_drac": {
-            "src": [("TCP", "22"), ("ICMP", "PING"), ("UDP", "161")],
-            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_pfsense": {
-            "src": [("TCP", "22"), ("ICMP", "PING"), ("UDP", "161")],
-            "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_aic": {
-            "src": [("TCP", "9183"), ("ICMP", "ping"), ("SSL", "443")],
-            "dst": [("UDP", "514"), ("TCP", "514")],
-        },
-        "exporter_voiceportal": {
-            "src": [("TCP", "5432"), ("ICMP", "ping"), ("TCP", "443"), ("TCP", "22")],
-            "dst": [],
-        },
-        "exporter_aam": {
-            "src": [("ICMP", "ping"), ("TCP", "8443"), ("TCP", "22"), ("UDP", "161"), ("SSL", "8443")],
-            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162")],
-        },
-        "exporter_pc5": {
-            "src": [("ICMP", "ping"), ("TCP", "22")],
-            "dst": [],
-        },
-        "exporter_audiocodes": {
-            "src": [("ICMP", "ping"), ("TCP", "22"), ("UDP", "161"), ("SSL", "443")],
-            "dst": [("UDP", "514"), ("TCP", "514"), ("UDP", "162"), ("SSL", "443")],
-        },
-        "exporter_redis": {
-            "src": [("TCP", "6379")],
-            "dst": [],
+    # Use port mappings from configuration
+    default_port_mappings = PORT_MAPPINGS.copy()
+    
+    # If configuration is empty, use a minimal fallback set
+    if not default_port_mappings:
+        logger.warning("No port mappings found in configuration for API, using fallback defaults")
+        default_port_mappings = {
+            "exporter_linux": {
+                "src": [("TCP", "22"), ("ICMP", "ping")],
+                "dst": [],
+            },
+            "exporter_windows": {
+                "src": [("TCP", "9182"), ("ICMP", "ping")],
+                "dst": [("UDP", "514"), ("TCP", "514")],
+            },
+            "exporter_network": {
+                "src": [("UDP", "161"), ("ICMP", "ping")],
+                "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
+            }
         }
-    }
     
     if request.method == "GET":
-        # Return the built-in port mappings as JSON
+        # Return the port mappings as JSON
         return jsonify(default_port_mappings)
     elif request.method == "POST":
         try:
@@ -1288,6 +1386,46 @@ def port_mappings_api():
     
     # Default response for methods other than GET or POST
     return jsonify({"status": "error", "message": "Method not allowed"}), 405
+
+@app.route('/export_config')
+def export_config():
+    """Export the current configuration as a YAML file."""
+    try:
+        # Create a config object with port and column mappings
+        config = {
+            'port_mappings': {},
+            'column_mappings': {}
+        }
+        
+        # Add all default port mappings
+        # Convert tuples to lists for proper YAML serialization
+        for exporter, mappings in PORT_MAPPINGS.items():
+            config['port_mappings'][exporter] = {
+                'src': [[protocol, port] for protocol, port in mappings.get('src', [])],
+                'dst': [[protocol, port] for protocol, port in mappings.get('dst', [])]
+            }
+        
+        # Add custom port mappings from session if they exist
+        if 'custom_port_mappings' in session:
+            config['port_mappings'].update(session['custom_port_mappings'])
+            
+        # Add column mappings
+        config['column_mappings'].update(COLUMN_MAPPINGS)
+        
+        # Convert to YAML
+        yaml_content = yaml.dump(config, default_flow_style=False, sort_keys=False)
+        
+        # Create response with YAML content
+        response = make_response(yaml_content)
+        response.headers['Content-Type'] = 'application/x-yaml'
+        response.headers['Content-Disposition'] = 'attachment; filename=port_config.yaml'
+        
+        logger.info("Configuration exported as YAML")
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error exporting configuration: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))

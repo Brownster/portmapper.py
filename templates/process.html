@@ -246,11 +246,15 @@
             background-color: #7f8c8d;
         }
         
-        .badge-yes {
+        .badge-custom {
             background-color: #e74c3c;
         }
         
-        .badge-no {
+        .badge-config {
+            background-color: #27ae60;
+        }
+        
+        .badge-default {
             background-color: #7f8c8d;
         }
         
@@ -401,16 +405,49 @@
         
         .hostname-label {
             display: flex;
-            align-items: center;
-            flex: 0 0 100%;
+            align-items: flex-start;
+            flex: 0 0 70%;
             cursor: pointer;
             margin-bottom: 8px;
         }
         
         /* For non-edge case items, maintain original layout */
         .hostname-item:not(.edge-case) .hostname-label {
-            flex: 0 0 40%;
             margin-bottom: 0;
+        }
+        
+        .exporter-tags {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 5px;
+            margin-left: 5px;
+            gap: 4px;
+            max-width: 100%;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            margin-right: 3px;
+            margin-bottom: 3px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            color: white;
+            white-space: nowrap;
+        }
+        
+        .badge-primary {
+            background-color: #3498db;
+        }
+        
+        .badge-secondary {
+            background-color: #7f8c8d;
+        }
+        
+        .badge-warning {
+            background-color: #f39c12;
+            color: #333;
         }
         
         .edge-case-label {
@@ -434,6 +471,73 @@
             flex-wrap: wrap;
         }
         
+        .port-config-toggle {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: auto;
+            transition: background-color 0.3s;
+        }
+        
+        .port-config-toggle:hover {
+            background-color: #2980b9;
+        }
+        
+        .port-config-section {
+            width: 100%;
+            margin-top: 10px;
+            padding: 12px;
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .port-config-group {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .port-config-group:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        
+        .port-config-heading {
+            font-size: 14px;
+            color: #444;
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .exporter-config {
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #f0f7fc;
+            border-radius: 4px;
+            border-left: 3px solid #3498db;
+        }
+        
+        .exporter-name {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .port-input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
         .port-input {
             flex: 1;
             min-width: 150px; /* Ensure minimum width */
@@ -448,7 +552,7 @@
             font-weight: 500;
         }
         
-        .edge-case-port-input {
+        .port-config-input, .edge-case-port-input {
             width: 100%;
             padding: 6px 10px;
             border: 1px solid #ddd;
@@ -457,9 +561,15 @@
             box-sizing: border-box;
         }
         
-        .edge-case-port-input:focus {
+        .port-config-input:focus, .edge-case-port-input:focus {
             border-color: #2980b9;
             outline: none;
+            box-shadow: 0 0 0 2px rgba(41, 128, 185, 0.2);
+        }
+        
+        .blackbox-input {
+            width: 100%;
+            max-width: 120px;
         }
         
         .edge-case.needs-ports {
@@ -720,47 +830,209 @@
                         <div class="hostname-details">
                             <span class="hostname-fqdn">{{ hostname.fqdn }}</span>
                             <span class="hostname-ip">{{ hostname.ip }}</span>
-                            {% if hostname.is_edge_case %}
-                            <span class="edge-case-label tooltip">
-                                Edge Case
-                                <span class="tooltiptext tooltip-bottom">Server requires manual port configuration</span>
-                            </span>
-                            {% endif %}
+                            
+                            <!-- Exporter Tags Section -->
+                            <div class="exporter-tags">
+                                {% if hostname.is_edge_case %}
+                                <span class="badge badge-warning">Edge Case</span>
+                                {% endif %}
+                                
+                                <!-- Exporter badges -->
+                                {% for exporter in hostname.exporters %}
+                                    <span class="badge badge-primary">{{ exporter }}</span>
+                                {% endfor %}
+                                
+                                <!-- Blackbox monitoring badges -->
+                                {% if hostname.ssh_banner %}
+                                    {% set value = hostname.ssh_banner|string|lower %}
+                                    {% if value in ['true', 'yes', '1', 't', 'y'] %}
+                                        <span class="badge badge-secondary">SSH Banner</span>
+                                    {% endif %}
+                                {% endif %}
+                                
+                                {% if hostname.tcp_connect or hostname.tcp_port %}
+                                    {% if hostname.tcp_connect %}
+                                        {% set value = hostname.tcp_connect|string|lower %}
+                                        {% if value in ['true', 'yes', '1', 't', 'y'] %}
+                                            <span class="badge badge-secondary">TCP Connect</span>
+                                        {% endif %}
+                                    {% elif hostname.tcp_port %}
+                                        <span class="badge badge-secondary">TCP Connect</span>
+                                    {% endif %}
+                                {% endif %}
+                                
+                                {% if hostname.snmp %}
+                                    {% set value = hostname.snmp|string|lower %}
+                                    {% if value in ['true', 'yes', '1', 't', 'y'] %}
+                                        <span class="badge badge-secondary">SNMP</span>
+                                    {% endif %}
+                                {% endif %}
+                                
+                                {% if hostname.ssl %}
+                                    {% set value = hostname.ssl|string|lower %}
+                                    {% if value in ['true', 'yes', '1', 't', 'y'] %}
+                                        <span class="badge badge-secondary">SSL</span>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
                         </div>
                     </label>
                     
-                    {% if hostname.is_edge_case %}
-                    <div class="edge-case-ports">
-                        <div class="port-input tooltip">
-                            <label class="port-label">To Target:</label>
-                            <input type="text" 
-                                   name="to_target_{{ hostname.fqdn }}" 
-                                   placeholder="e.g., 22,443,8080" 
-                                   value="{{ hostname.suggested_to_target }}"
-                                   class="edge-case-port-input" 
-                                   pattern="[0-9,]*">
-                            <span class="tooltiptext">
-                                <strong>Monitoring → Target:</strong> Ports that the monitoring server needs to connect to on this server.
-                                <br><br>
-                                Enter port numbers separated by commas (e.g., 22,443,8080).
-                            </span>
+                    <!-- Configure Ports Button -->
+                    <button type="button" class="port-config-toggle" onclick="togglePortConfig('{{ hostname.fqdn }}')">
+                        Configure Ports
+                    </button>
+                    
+                    <!-- Port Configuration Section (Initially Hidden) -->
+                    <div id="port-config-{{ hostname.fqdn }}" class="port-config-section" style="display: none;">
+                        <!-- Standard Exporter Ports -->
+                        {% if hostname.exporters %}
+                        <div class="port-config-group">
+                            <h4 class="port-config-heading">Exporter Ports</h4>
+                            {% for exporter in hostname.exporters %}
+                                <div class="exporter-config">
+                                    <h5 class="exporter-name">{{ exporter }}</h5>
+                                    <div class="port-input-grid">
+                                        <div class="port-input tooltip">
+                                            <label class="port-label">To Target:</label>
+                                            <input type="text"
+                                                   name="exporter_to_{{ exporter }}_{{ hostname.fqdn }}"
+                                                   placeholder="e.g., 22,443,8080"
+                                                   value="{% for protocol, port in hostname.suggested_ports.get(exporter, {}).get('src', []) %}{% if port != 'ping' %}{{ port }}{% if not loop.last and loop.nextitem[1] != 'ping' %},{% endif %}{% endif %}{% endfor %}"
+                                                   class="port-config-input"
+>
+                                            <span class="tooltiptext">
+                                                <strong>Monitoring → Target:</strong> Ports that the monitoring server needs to connect to on this server.
+                                                <br><br>
+                                                Enter port numbers separated by commas (e.g., 22,443,8080).
+                                            </span>
+                                        </div>
+                                        <div class="port-input tooltip">
+                                            <label class="port-label">From Target:</label>
+                                            <input type="text"
+                                                   name="exporter_from_{{ exporter }}_{{ hostname.fqdn }}"
+                                                   placeholder="e.g., 162,514"
+                                                   value="{% for protocol, port in hostname.suggested_ports.get(exporter, {}).get('dst', []) %}{% if port != 'ping' %}{{ port }}{% if not loop.last and loop.nextitem[1] != 'ping' %},{% endif %}{% endif %}{% endfor %}"
+                                                   class="port-config-input"
+>
+                                            <span class="tooltiptext">
+                                                <strong>Target → Monitoring:</strong> Return traffic ports from this server back to the monitoring server.
+                                                <br><br>
+                                                Enter port numbers separated by commas (e.g., 162,514). Optional.
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
                         </div>
-                        <div class="port-input tooltip">
-                            <label class="port-label">From Target:</label>
-                            <input type="text" 
-                                   name="from_target_{{ hostname.fqdn }}" 
-                                   placeholder="e.g., 162,514" 
-                                   value="{{ hostname.suggested_from_target }}"
-                                   class="edge-case-port-input" 
-                                   pattern="[0-9,]*">
-                            <span class="tooltiptext">
-                                <strong>Target → Monitoring:</strong> Return traffic ports from this server back to the monitoring server.
-                                <br><br>
-                                Enter port numbers separated by commas (e.g., 162,514). Optional.
-                            </span>
+                        {% endif %}
+                        
+                        <!-- Blackbox Monitoring Ports -->
+                        {% if hostname.is_edge_case %}
+                        <div class="port-config-group">
+                            <h4 class="port-config-heading">Blackbox Monitoring Ports</h4>
+                            <!-- SSH Banner port -->
+                            {% if hostname.ssh_banner and hostname.ssh_banner|lower in ['true', 'yes', '1'] %}
+                            <div class="port-input tooltip">
+                                <label class="port-label">SSH Banner Port:</label>
+                                <input type="text"
+                                       name="ssh_banner_port_{{ hostname.fqdn }}"
+                                       placeholder="22"
+                                       value="{{ hostname.suggested_ports.get('ssh_banner', '22') }}"
+                                       class="port-config-input blackbox-input"
+>
+                                <span class="tooltiptext">
+                                    Port used for SSH banner monitoring. Default is 22.
+                                </span>
+                            </div>
+                            {% endif %}
+                            
+                            <!-- TCP Connect port -->
+                            {% if hostname.tcp_connect and hostname.tcp_connect|lower in ['true', 'yes', '1'] 
+                               or hostname.tcp_port %}
+                            <div class="port-input tooltip">
+                                <label class="port-label">TCP Connect Port:</label>
+                                <input type="text"
+                                       name="tcp_connect_port_{{ hostname.fqdn }}"
+                                       placeholder="80"
+                                       value="{{ hostname.tcp_port or hostname.suggested_ports.get('tcp_connect', '') }}"
+                                       class="port-config-input blackbox-input"
+>
+                                <span class="tooltiptext">
+                                    Port used for TCP connectivity check. Specify a single port number.
+                                </span>
+                            </div>
+                            {% endif %}
+                            
+                            <!-- SNMP port -->
+                            {% if hostname.snmp and hostname.snmp|lower in ['true', 'yes', '1'] %}
+                            <div class="port-input tooltip">
+                                <label class="port-label">SNMP Port:</label>
+                                <input type="text"
+                                       name="snmp_port_{{ hostname.fqdn }}"
+                                       placeholder="161"
+                                       value="{{ hostname.suggested_ports.get('snmp', '161') }}"
+                                       class="port-config-input blackbox-input"
+>
+                                <span class="tooltiptext">
+                                    Port used for SNMP monitoring. Default is 161.
+                                </span>
+                            </div>
+                            {% endif %}
+                            
+                            <!-- SSL port -->
+                            {% if hostname.ssl and hostname.ssl|lower in ['true', 'yes', '1'] %}
+                            <div class="port-input tooltip">
+                                <label class="port-label">SSL Port:</label>
+                                <input type="text"
+                                       name="ssl_port_{{ hostname.fqdn }}"
+                                       placeholder="443"
+                                       value="{{ hostname.suggested_ports.get('ssl', '443') }}"
+                                       class="port-config-input blackbox-input"
+>
+                                <span class="tooltiptext">
+                                    Port used for SSL monitoring. Default is 443.
+                                </span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Custom Additional Ports (always shown) -->
+                        <div class="port-config-group">
+                            <h4 class="port-config-heading">Custom Additional Ports</h4>
+                            <div class="port-input-grid">
+                                <div class="port-input tooltip">
+                                    <label class="port-label">To Target:</label>
+                                    <input type="text"
+                                           name="to_target_{{ hostname.fqdn }}"
+                                           placeholder="e.g., 22,443,8080"
+                                           value="{{ hostname.suggested_to_target }}"
+                                           class="port-config-input"
+>
+                                    <span class="tooltiptext">
+                                        <strong>Additional Monitoring → Target:</strong> Extra ports that the monitoring server needs to connect to.
+                                        <br><br>
+                                        Enter port numbers separated by commas (e.g., 22,443,8080).
+                                    </span>
+                                </div>
+                                <div class="port-input tooltip">
+                                    <label class="port-label">From Target:</label>
+                                    <input type="text"
+                                           name="from_target_{{ hostname.fqdn }}"
+                                           placeholder="e.g., 162,514"
+                                           value="{{ hostname.suggested_from_target }}"
+                                           class="port-config-input"
+>
+                                    <span class="tooltiptext">
+                                        <strong>Additional Target → Monitoring:</strong> Extra return traffic ports.
+                                        <br><br>
+                                        Enter port numbers separated by commas (e.g., 162,514). Optional.
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
@@ -967,6 +1239,11 @@
                 <!-- Port Mappings Table -->
                 <div class="port-mappings-container">
                     <h4>Current Port Mappings</h4>
+                    <div class="info-note" style="margin-bottom: 15px;">
+                        <p>Port mappings are loaded from: configuration file &gt; session custom mappings &gt; built-in defaults.</p>
+                        <p>View full <a href="{{ url_for('config_status') }}" target="_blank" style="color: #2980b9;">configuration details</a> or 
+                        <a href="#" id="export-config-button" style="color: #2980b9;">export current mappings</a> to a YAML file.</p>
+                    </div>
                     <div class="port-mappings-table-wrapper">
                         <table class="port-mappings-table" id="port-mappings-table">
                             <thead>
@@ -990,9 +1267,9 @@
                                         </span>
                                     </th>
                                     <th class="tooltip">
-                                        Custom
+                                        Source
                                         <span class="tooltiptext tooltip-bottom">
-                                            Whether this is a user-defined custom exporter or a built-in configuration
+                                            Whether this is from the config file, a user-defined custom mapping, or a built-in default
                                         </span>
                                     </th>
                                     <th>Actions</th>
@@ -1024,6 +1301,7 @@
         setupEdgeCasePortInputs();
         initializeTabs();
         setupPortMappingsTab();
+        setupPortConfigurationUI();
         
         // Function to toggle all checkboxes
         document.getElementById('checkAll').addEventListener('click', function() {
@@ -1044,6 +1322,56 @@
             }
             updateSelectedCount();
         });
+        
+        // Port Configuration UI Functions
+        function setupPortConfigurationUI() {
+            // Add checkbox selection when clicking on port input fields
+            const portInputs = document.querySelectorAll('.port-config-input');
+            portInputs.forEach(input => {
+                input.addEventListener('input', function() {
+                    // Get the hostname from the input name (format: xxx_hostname)
+                    const hostname = this.name.split('_').slice(-1)[0];
+                    const checkbox = document.querySelector(`input[name="selected_hostnames"][value="${hostname}"]`);
+                    if (checkbox && this.value.trim() !== '') {
+                        checkbox.checked = true;
+                        updateSelectedCount();
+                    }
+                });
+            });
+        }
+        
+        // Toggle port configuration visibility
+        function togglePortConfig(hostname) {
+            const configSection = document.getElementById(`port-config-${hostname}`);
+            if (configSection) {
+                const isVisible = configSection.style.display !== 'none';
+                
+                // Hide all other sections first
+                document.querySelectorAll('.port-config-section').forEach(section => {
+                    section.style.display = 'none';
+                });
+                
+                // Toggle this section
+                configSection.style.display = isVisible ? 'none' : 'block';
+                
+                // Auto-select the hostname when expanding port configuration
+                if (!isVisible) {
+                    const checkbox = document.querySelector(`input[name="selected_hostnames"][value="${hostname}"]`);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                        updateSelectedCount();
+                    }
+                }
+            }
+        }
+        
+        // Function to toggle all port configurations
+        function toggleAllPortConfigs(show) {
+            const configSections = document.querySelectorAll('.port-config-section');
+            configSections.forEach(section => {
+                section.style.display = show ? 'block' : 'none';
+            });
+        }
         
         // Function to filter hostnames based on search input
         function filterHostnames() {
@@ -1180,31 +1508,68 @@
                 return false;
             }
             
-            // Validate port inputs for edge cases
-            var edgeCaseItems = document.querySelectorAll('.edge-case');
+            // Collect all port input validations
             var invalidPorts = false;
             
+            // 1. Validate all port inputs (both standard and edge case)
+            var allPortInputs = document.querySelectorAll('.port-config-input');
+            allPortInputs.forEach(function(input) {
+                // Only validate inputs for selected hostnames
+                const inputNameParts = input.name.split('_');
+                const hostname = inputNameParts[inputNameParts.length - 1];
+                const checkbox = document.querySelector(`input[name="selected_hostnames"][value="${hostname}"]`);
+                
+                if (checkbox && checkbox.checked) {
+                    // Check if port values are valid (numbers, commas, and special values like 'ping')
+                    var value = input.value.trim();
+                    if (value) {
+                        // Allow numbers, commas, and special values like 'ping', 'true', 'yes', etc.
+                        var ports = value.split(',');
+                        var hasInvalid = false;
+                        
+                        for (var i = 0; i < ports.length; i++) {
+                            var port = ports[i].trim();
+                            var portLower = port.toLowerCase();
+                            // Allow special values or numeric ports
+                            if (portLower !== 'ping' && 
+                                portLower !== 'true' && 
+                                portLower !== 'yes' && 
+                                portLower !== '1' && 
+                                portLower !== 't' && 
+                                portLower !== 'y' && 
+                                !/^\d+$/.test(port)) {
+                                hasInvalid = true;
+                                break;
+                            }
+                        }
+                        
+                        if (hasInvalid) {
+                            alert(`Invalid port format for ${hostname}: "${input.value}". Please use numbers or special values like "ping", "true", "yes", separated by commas.`);
+                            invalidPorts = true;
+                            input.classList.add('port-required');
+                        } else {
+                            input.classList.remove('port-required');
+                        }
+                    }
+                }
+            });
+            
+            // 2. Validate edge cases specifically (they require at least one port)
+            var edgeCaseItems = document.querySelectorAll('.edge-case');
             edgeCaseItems.forEach(function(item) {
                 var checkbox = item.querySelector('input[type="checkbox"]');
                 
                 // Only validate if this edge case is selected
                 if (checkbox && checkbox.checked) {
-                    var portInputs = item.querySelectorAll('.edge-case-port-input');
+                    var portInputs = item.querySelectorAll('.port-config-input');
                     var hostnameFqdn = item.querySelector('.hostname-fqdn').textContent;
                     
                     // Check if at least one port is specified
                     var hasPort = false;
                     
                     portInputs.forEach(function(input) {
-                        // Check if port values are valid (numbers, commas)
-                        var value = input.value.trim();
-                        if (value) {
+                        if (input.value.trim() !== '') {
                             hasPort = true;
-                            var isValid = /^[0-9,]+$/.test(value);
-                            if (!isValid) {
-                                alert("Invalid port format for " + hostnameFqdn + ". Please use numbers and commas only.");
-                                invalidPorts = true;
-                            }
                         }
                     });
                     
@@ -1212,6 +1577,11 @@
                     if (!hasPort) {
                         alert("Please specify at least one port for the edge case server: " + hostnameFqdn);
                         invalidPorts = true;
+                        // Mark all port inputs as required
+                        portInputs.forEach(input => input.classList.add('port-required'));
+                    } else {
+                        // Remove required marking
+                        portInputs.forEach(input => input.classList.remove('port-required'));
                     }
                 }
             });
@@ -1272,6 +1642,15 @@
                 });
             });
             
+            // Add export configuration functionality
+            var exportButton = document.getElementById('export-config-button');
+            if (exportButton) {
+                exportButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    exportCurrentConfiguration();
+                });
+            }
+            
             // Back to server selection button functionality
             var backButton = document.getElementById('back-to-servers-btn');
             if (backButton) {
@@ -1290,6 +1669,108 @@
                     
                     document.getElementById('server-selection').classList.add('active');
                 });
+            }
+        }
+        
+        // Export current configuration as YAML file
+        function exportCurrentConfiguration() {
+            try {
+                // Get all the current port mappings (both from server and custom)
+                const xhr = new XMLHttpRequest();
+                xhr.open('GET', '/api/port_mappings', false); // Synchronous for simplicity
+                xhr.send();
+                
+                if (xhr.status === 200) {
+                    const portMappings = JSON.parse(xhr.responseText);
+                    
+                    // Format as YAML-like structure
+                    let yamlContent = "# Port Mapper Configuration\n\n";
+                    yamlContent += "# Column mappings for different exporter types\n";
+                    yamlContent += "column_mappings:\n";
+                    
+                    // We don't have direct access to column mappings, so use generic ones based on port mappings
+                    Object.keys(portMappings).forEach(exporterName => {
+                        yamlContent += `  ${exporterName}:\n`;
+                        
+                        // Determine if this is likely an OS or app exporter based on naming convention
+                        if (exporterName.includes('linux') || exporterName.includes('windows')) {
+                            yamlContent += `    column_name: "Exporter_name_os"\n`;
+                        } else {
+                            yamlContent += `    column_names:\n`;
+                            yamlContent += `      - "Exporter_name_app"\n`;
+                            yamlContent += `      - "Exporter_name_app_2"\n`;
+                            yamlContent += `      - "Exporter_name_app_3"\n`;
+                        }
+                    });
+                    
+                    yamlContent += "\n# Port mapping configurations\n";
+                    yamlContent += "port_mappings:\n";
+                    
+                    // Add all port mappings
+                    Object.keys(portMappings).sort().forEach(exporterName => {
+                        const mapping = portMappings[exporterName];
+                        
+                        yamlContent += `  ${exporterName}:\n`;
+                        
+                        // Source (to target) ports
+                        yamlContent += "    src:\n";
+                        if (mapping.src && mapping.src.length > 0) {
+                            mapping.src.forEach(portEntry => {
+                                let protocol, port;
+                                if (Array.isArray(portEntry)) {
+                                    [protocol, port] = portEntry;
+                                } else if (typeof portEntry === 'object') {
+                                    protocol = portEntry[0];
+                                    port = portEntry[1];
+                                }
+                                yamlContent += `      - ["${protocol}", "${port}"]\n`;
+                            });
+                        } else {
+                            yamlContent += "      []\n";
+                        }
+                        
+                        // Destination (from target) ports
+                        yamlContent += "    dst:\n";
+                        if (mapping.dst && mapping.dst.length > 0) {
+                            mapping.dst.forEach(portEntry => {
+                                let protocol, port;
+                                if (Array.isArray(portEntry)) {
+                                    [protocol, port] = portEntry;
+                                } else if (typeof portEntry === 'object') {
+                                    protocol = portEntry[0];
+                                    port = portEntry[1];
+                                }
+                                yamlContent += `      - ["${protocol}", "${port}"]\n`;
+                            });
+                        } else {
+                            yamlContent += "      []\n";
+                        }
+                    });
+                    
+                    // Create a download link
+                    const blob = new Blob([yamlContent], { type: 'text/yaml' });
+                    const url = URL.createObjectURL(blob);
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+                    const filename = `port_config_${timestamp}.yaml`;
+                    
+                    // Create an anchor element and trigger the download
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    // Clean up
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }, 0);
+                } else {
+                    alert('Error fetching port mappings. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error exporting configuration:', error);
+                alert('Error exporting configuration: ' + error.message);
             }
         }
         
@@ -1603,7 +2084,11 @@
                     <td>${exporterName}</td>
                     <td>${toTargetPorts || '<em>None</em>'}</td>
                     <td>${fromTargetPorts || '<em>None</em>'}</td>
-                    <td><span class="custom-badge ${isCustom ? 'badge-yes' : 'badge-no'}">${isCustom ? 'Yes' : 'No'}</span></td>
+                    <td>
+                        ${isCustom ? 
+                            '<span class="custom-badge badge-custom">Custom</span>' : 
+                            '<span class="custom-badge badge-config">Config</span>'}
+                    </td>
                     <td>
                         ${isCustom ? `<button type="button" class="action-button delete" data-exporter="${exporterName}">Delete</button>` : ''}
                     </td>
