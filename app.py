@@ -105,9 +105,16 @@ def cleanup_old_files(directory, max_age_in_seconds=3600):
 def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_hostnames=None):
     """Generate a CSV file with port mappings for the selected hostnames.
     
-    This function processes the CSV file and generates port mappings for servers with 
-    standard exporters. It also handles exporter-specific port configurations and
-    blackbox monitoring cases.
+    This function processes the CSV file and applies one of two mutually exclusive approaches:
+    
+    1. For targets with exporters: Uses the exporter port mappings from the configuration.
+       Does NOT apply blackbox monitoring ports to targets with exporters.
+    
+    2. For edge cases (targets without exporters but with monitoring flags): 
+       Uses ONLY the blackbox monitoring ports derived from columns like ssh-banner, 
+       tcp-connect, SNMP, etc.
+    
+    The two approaches are never mixed for a single target to avoid duplication.
     """
     # Use the port mappings from configuration
     port_mappings = PORT_MAPPINGS.copy()
@@ -388,15 +395,6 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
                 # Use default port if flag is set but no port is in form data
                 blackbox_ports.append(("TCP", "443", "SSL"))
             
-            # Add blackbox monitoring entries
-            for protocol, port, monitor_type in blackbox_ports:
-                description = f"Monitoring from {maas_ng_fqdn} to {target_fqdn} ({monitor_type})"
-                entry = (maas_ng_fqdn, maas_ng_ip, target_fqdn, ip, protocol, port, description)
-                if entry not in unique_entries:
-                    writer.writerow(entry)
-                    unique_entries.add(entry)
-                    processed_count += 1
-            
             # Collect all exporter names using the column mappings configuration
             exporters = []
             
@@ -431,121 +429,140 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
                     if 'EXPORTER' in str(header).upper() and data_row[i].strip():
                         exporters.append(data_row[i].strip())
 
-            # Process each exporter
-            for exporter in exporters:
-                # Convert to lowercase for case-insensitive comparison
-                exporter_lower = exporter.lower()
-                exporter_key = None
+            # Determine if this is an edge case (has blackbox monitoring flags but no exporters)
+            is_edge_case = bool(blackbox_ports) and not exporters
+            
+            # Process based on whether we have exporters or need to use blackbox monitoring
+            if is_edge_case:
+                # This is an edge case - use blackbox monitoring only
+                logger.info(f"Processing edge case with blackbox monitoring for {target_fqdn}")
                 
-                # Find matching exporter in the port mappings
-                for key in port_mappings:
-                    if key.lower() == exporter_lower:
-                        exporter_key = key
-                        break
-                
-                if exporter_key:
-                    # Check for custom port configuration for this exporter in the form data
-                    to_target_key = f"exporter_to_{exporter}_{target_fqdn}"
-                    from_target_key = f"exporter_from_{exporter}_{target_fqdn}"
+                # Add blackbox monitoring entries
+                for protocol, port, monitor_type in blackbox_ports:
+                    description = f"Monitoring from {maas_ng_fqdn} to {target_fqdn} (edge case: {monitor_type})"
+                    entry = (maas_ng_fqdn, maas_ng_ip, target_fqdn, ip, protocol, port, description)
+                    if entry not in unique_entries:
+                        writer.writerow(entry)
+                        unique_entries.add(entry)
+                        processed_count += 1
+            
+            # If not an edge case and has exporters, process them
+            if not is_edge_case and exporters:
+                # Process each exporter
+                for exporter in exporters:
+                    # Convert to lowercase for case-insensitive comparison
+                    exporter_lower = exporter.lower()
+                    exporter_key = None
                     
-                    # Get custom configured ports if present
-                    has_custom_config = False
-                    to_target_ports = []
-                    from_target_ports = []
+                    # Find matching exporter in the port mappings
+                    for key in port_mappings:
+                        if key.lower() == exporter_lower:
+                            exporter_key = key
+                            break
                     
-                    if to_target_key in form_data:
-                        custom_ports = form_data[to_target_key][0].strip()
-                        if custom_ports:
-                            has_custom_config = True
-                            # Split comma-separated ports and create a list of TCP ports
-                            # Don't include ICMP ping here - those come from default mappings
-                            to_target_ports = [("TCP", port.strip()) for port in custom_ports.split(',') 
-                                              if port.strip() and port.strip().lower() != 'ping']
-                    
-                    if from_target_key in form_data:
-                        custom_ports = form_data[from_target_key][0].strip()
-                        if custom_ports:
-                            has_custom_config = True
-                            # Split comma-separated ports and create a list of TCP ports
-                            from_target_ports = [("TCP", port.strip()) for port in custom_ports.split(',') 
-                                                if port.strip() and port.strip().lower() != 'ping']
-                    
-                    # Use custom port configuration if provided, otherwise use defaults
-                    if has_custom_config:
-                        # If we have a custom config, use it (completely replacing defaults)
-                        src_ports = to_target_ports
-                        dst_ports = from_target_ports
+                    if exporter_key:
+                        # Check for custom port configuration for this exporter in the form data
+                        to_target_key = f"exporter_to_{exporter}_{target_fqdn}"
+                        from_target_key = f"exporter_from_{exporter}_{target_fqdn}"
+                        
+                        # Get custom configured ports if present
+                        has_custom_config = False
+                        to_target_ports = []
+                        from_target_ports = []
+                        
+                        if to_target_key in form_data:
+                            custom_ports = form_data[to_target_key][0].strip()
+                            if custom_ports:
+                                has_custom_config = True
+                                # Split comma-separated ports and create a list of TCP ports
+                                # Don't include ICMP ping here - those come from default mappings
+                                to_target_ports = [("TCP", port.strip()) for port in custom_ports.split(',') 
+                                                  if port.strip() and port.strip().lower() != 'ping']
+                        
+                        if from_target_key in form_data:
+                            custom_ports = form_data[from_target_key][0].strip()
+                            if custom_ports:
+                                has_custom_config = True
+                                # Split comma-separated ports and create a list of TCP ports
+                                from_target_ports = [("TCP", port.strip()) for port in custom_ports.split(',') 
+                                                    if port.strip() and port.strip().lower() != 'ping']
+                        
+                        # Use custom port configuration if provided, otherwise use defaults
+                        if has_custom_config:
+                            # If we have a custom config, use it (completely replacing defaults)
+                            src_ports = to_target_ports
+                            dst_ports = from_target_ports
+                        else:
+                            # Otherwise use defaults
+                            src_ports = port_mappings[exporter_key]["src"]
+                            dst_ports = port_mappings[exporter_key]["dst"]
+                        
+                        # Add entries for source to destination (monitoring server to target)
+                        for protocol, port in src_ports:
+                            description = f"Monitoring from {maas_ng_fqdn} to {target_fqdn} ({exporter})"
+                            entry = (maas_ng_fqdn, maas_ng_ip, target_fqdn, ip, protocol, port, description)
+                            if entry not in unique_entries:
+                                writer.writerow(entry)
+                                unique_entries.add(entry)
+                                processed_count += 1
+
+                        # Add entries for destination to source (target to monitoring server)
+                        for protocol, port in dst_ports:
+                            description = f"Return traffic from {target_fqdn} to {maas_ng_fqdn} ({exporter})"
+                            entry = (target_fqdn, ip, maas_ng_fqdn, maas_ng_ip, protocol, port, description)
+                            if entry not in unique_entries:
+                                writer.writerow(entry)
+                                unique_entries.add(entry)
+                                processed_count += 1
                     else:
-                        # Otherwise use defaults
-                        src_ports = port_mappings[exporter_key]["src"]
-                        dst_ports = port_mappings[exporter_key]["dst"]
-                    
-                    # Add entries for source to destination (monitoring server to target)
-                    for protocol, port in src_ports:
-                        description = f"Monitoring from {maas_ng_fqdn} to {target_fqdn} ({exporter})"
-                        entry = (maas_ng_fqdn, maas_ng_ip, target_fqdn, ip, protocol, port, description)
-                        if entry not in unique_entries:
-                            writer.writerow(entry)
-                            unique_entries.add(entry)
-                            processed_count += 1
+                        logger.warning(f"Unknown exporter type: {exporter} for {target_fqdn}")
 
-                    # Add entries for destination to source (target to monitoring server)
-                    for protocol, port in dst_ports:
-                        description = f"Return traffic from {target_fqdn} to {maas_ng_fqdn} ({exporter})"
-                        entry = (target_fqdn, ip, maas_ng_fqdn, maas_ng_ip, protocol, port, description)
-                        if entry not in unique_entries:
-                            writer.writerow(entry)
-                            unique_entries.add(entry)
-                            processed_count += 1
-                else:
-                    logger.warning(f"Unknown exporter type: {exporter} for {target_fqdn}")
-
-            # Process additional custom ports (always available)
-            to_target_key = f"to_target_{target_fqdn}"
-            from_target_key = f"from_target_{target_fqdn}"
-            
-            # Get custom ports from form data
-            if to_target_key in form_data:
-                custom_ports = form_data[to_target_key][0].strip()
-                if custom_ports:
-                    # Filter out non-numeric ports (like 'ping' which should be handled separately)
-                    ports = [port.strip() for port in custom_ports.split(',') 
-                             if port.strip() and port.strip().lower() != 'ping']
-                    
-                    # Check for duplicates with blackbox monitoring entries
-                    blackbox_port_values = [port for protocol, port, _ in blackbox_ports]
-                    
-                    # Only add ports that aren't already covered by blackbox monitoring
-                    # Make sure to check both port numbers and protocol
-                    # We also need to track which blackbox ports already have entries
-                    blackbox_port_entries = [(protocol, port) for protocol, port, _ in blackbox_ports]
-                    
-                    # Filter out ports that match blackbox monitoring entries
-                    unique_ports = [p for p in ports if not any(p == entry[1] for entry in blackbox_port_entries)]
-                    
-                    for port in unique_ports:
-                        description = f"Custom monitoring from {maas_ng_fqdn} to {target_fqdn}"
-                        entry = (maas_ng_fqdn, maas_ng_ip, target_fqdn, ip, "TCP", port, description)
-                        if entry not in unique_entries:
-                            writer.writerow(entry)
-                            unique_entries.add(entry)
-                            processed_count += 1
-                            logger.info(f"Added custom to_target port {port} for {target_fqdn}")
-            
-            if from_target_key in form_data:
-                custom_ports = form_data[from_target_key][0].strip()
-                if custom_ports:
-                    # Filter out non-numeric ports (like 'ping')
-                    ports = [port.strip() for port in custom_ports.split(',') 
-                             if port.strip() and port.strip().lower() != 'ping']
-                    for port in ports:
-                        description = f"Custom return traffic from {target_fqdn} to {maas_ng_fqdn}"
-                        entry = (target_fqdn, ip, maas_ng_fqdn, maas_ng_ip, "TCP", port, description)
-                        if entry not in unique_entries:
-                            writer.writerow(entry)
-                            unique_entries.add(entry)
-                            processed_count += 1
-                            logger.info(f"Added custom from_target port {port} for {target_fqdn}")
+            # Process additional custom ports (only for edge cases without exporters)
+            if is_edge_case:
+                to_target_key = f"to_target_{target_fqdn}"
+                from_target_key = f"from_target_{target_fqdn}"
+                
+                # Get custom ports from form data
+                if to_target_key in form_data:
+                    custom_ports = form_data[to_target_key][0].strip()
+                    if custom_ports:
+                        # Filter out non-numeric ports (like 'ping' which should be handled separately)
+                        ports = [port.strip() for port in custom_ports.split(',') 
+                                if port.strip() and port.strip().lower() != 'ping']
+                        
+                        # Check for duplicates with blackbox monitoring entries
+                        blackbox_port_values = [port for protocol, port, _ in blackbox_ports]
+                        
+                        # Only add ports that aren't already covered by blackbox monitoring
+                        # Make sure to check both port numbers and protocol
+                        blackbox_port_entries = [(protocol, port) for protocol, port, _ in blackbox_ports]
+                        
+                        # Filter out ports that match blackbox monitoring entries
+                        unique_ports = [p for p in ports if not any(p == entry[1] for entry in blackbox_port_entries)]
+                        
+                        for port in unique_ports:
+                            description = f"Custom monitoring from {maas_ng_fqdn} to {target_fqdn} (edge case)"
+                            entry = (maas_ng_fqdn, maas_ng_ip, target_fqdn, ip, "TCP", port, description)
+                            if entry not in unique_entries:
+                                writer.writerow(entry)
+                                unique_entries.add(entry)
+                                processed_count += 1
+                                logger.info(f"Added custom to_target port {port} for edge case {target_fqdn}")
+                
+                if from_target_key in form_data:
+                    custom_ports = form_data[from_target_key][0].strip()
+                    if custom_ports:
+                        # Filter out non-numeric ports (like 'ping')
+                        ports = [port.strip() for port in custom_ports.split(',') 
+                                if port.strip() and port.strip().lower() != 'ping']
+                        for port in ports:
+                            description = f"Custom return traffic from {target_fqdn} to {maas_ng_fqdn} (edge case)"
+                            entry = (target_fqdn, ip, maas_ng_fqdn, maas_ng_ip, "TCP", port, description)
+                            if entry not in unique_entries:
+                                writer.writerow(entry)
+                                unique_entries.add(entry)
+                                processed_count += 1
+                                logger.info(f"Added custom from_target port {port} for edge case {target_fqdn}")
 
         logger.info(f"Processed {processed_count} port mappings, skipped {skipped_count} items")
         return processed_count, skipped_count
