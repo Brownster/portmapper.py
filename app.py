@@ -32,11 +32,47 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+def _normalize_port_entries(port_entries, exporter_name, direction):
+    """Ensure port entries are iterable pairs and filter out malformed values."""
+    normalized = []
+    for entry in port_entries or []:
+        if isinstance(entry, (list, tuple)) and len(entry) == 2:
+            normalized.append((entry[0], entry[1]))
+        else:
+            logger.warning(
+                "Skipping malformed %s port entry for %s: %s",
+                direction,
+                exporter_name,
+                entry,
+            )
+    return normalized
+
+
+def normalize_port_mappings(port_mappings):
+    """Return a sanitized copy of port mappings with only valid port pairs."""
+    if not isinstance(port_mappings, dict):
+        return {}
+
+    normalized = {}
+    for exporter_name, mapping in port_mappings.items():
+        if not isinstance(mapping, dict):
+            logger.warning("Skipping malformed mapping for %s: %s", exporter_name, mapping)
+            continue
+
+        normalized[exporter_name] = {
+            'src': _normalize_port_entries(mapping.get('src', []), exporter_name, 'src'),
+            'dst': _normalize_port_entries(mapping.get('dst', []), exporter_name, 'dst'),
+        }
+
+    return normalized
+
+
 # Load configuration
 try:
     config_path = os.environ.get('PORT_CONFIG', None)
     app_config = load_config(config_path)
-    PORT_MAPPINGS = get_port_mappings(app_config)
+    PORT_MAPPINGS = normalize_port_mappings(get_port_mappings(app_config))
     COLUMN_MAPPINGS = get_column_mappings(app_config)
     
     # Store config info for status page
@@ -117,7 +153,7 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
     The two approaches are never mixed for a single target to avoid duplication.
     """
     # Use the port mappings from configuration
-    port_mappings = PORT_MAPPINGS.copy()
+    port_mappings = normalize_port_mappings(PORT_MAPPINGS.copy())
     
     # If configuration is empty, use hardcoded fallback mappings
     if not port_mappings:
@@ -137,38 +173,19 @@ def create_port_csv(input_file, output_file, maas_ng_ip, maas_ng_fqdn, selected_
                 "dst": [("UDP", "162"), ("UDP", "514"), ("TCP", "514")],
             }
         }
-    else:
-        # Convert the port mappings from the config format to tuple format expected by the code
-        for exporter_name, mapping in port_mappings.items():
-            if 'src' in mapping and isinstance(mapping['src'], list):
-                src_ports = [tuple(port_entry) for port_entry in mapping['src']]
-                port_mappings[exporter_name]['src'] = src_ports
-            
-            if 'dst' in mapping and isinstance(mapping['dst'], list):
-                dst_ports = [tuple(port_entry) for port_entry in mapping['dst']]
-                port_mappings[exporter_name]['dst'] = dst_ports
+
+    port_mappings = normalize_port_mappings(port_mappings)
     
     # Check for custom port mappings in session and merge them with the defaults
     if 'custom_port_mappings' in session and session['custom_port_mappings']:
-        custom_mappings = session['custom_port_mappings']
+        custom_mappings = normalize_port_mappings(session['custom_port_mappings'])
         logger.info(f"Found {len(custom_mappings)} custom port mappings in session")
-        
+
         # Add custom mappings to the port_mappings dictionary
         for exporter_name, mapping in custom_mappings.items():
-            # Convert the format from the client-side format to the server-side format
-            if 'src' in mapping and isinstance(mapping['src'], list):
-                src_ports = [tuple(port_entry) for port_entry in mapping['src']]
-            else:
-                src_ports = []
-                
-            if 'dst' in mapping and isinstance(mapping['dst'], list):
-                dst_ports = [tuple(port_entry) for port_entry in mapping['dst']]
-            else:
-                dst_ports = []
-                
             port_mappings[exporter_name] = {
-                "src": src_ports,
-                "dst": dst_ports
+                "src": mapping.get('src', []),
+                "dst": mapping.get('dst', [])
             }
 
     # Get the form data for custom port configurations

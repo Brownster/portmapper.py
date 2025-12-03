@@ -70,7 +70,7 @@ def test_app_loads_config():
     
     # Check that they contain entries
     assert len(PORT_MAPPINGS) > 0
-    assert any(key.startswith('exporter_') for key in PORT_MAPPINGS.keys())
+    assert any(key.startswith('exporter_') for key in PORT_MAPPINGS)
 
 def test_port_mappings_api(client):
     """Test that the API returns port mappings."""
@@ -86,7 +86,7 @@ def test_port_mappings_api(client):
     # Verify it contains expected mappings
     assert isinstance(data, dict)
     assert len(data) > 0
-    assert any(key.startswith('exporter_') for key in data.keys())
+    assert any(key.startswith('exporter_') for key in data)
 
 def test_column_mappings_in_config():
     """Test the column mappings from the configuration."""
